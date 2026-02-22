@@ -4,16 +4,255 @@
 
 ---
 
-## Quick Start
+## Quick Start (Claude Code CLI — Terminal)
 
 ```bash
+# 1. Install Claude Code if you don't have it
+npm install -g @anthropic-ai/claude-code
+
+# 2. Clone and install skills
 git clone https://github.com/arijitchowdhury80/algolia-claude-skills.git
 cd algolia-claude-skills/
 chmod +x install.sh
 ./install.sh
+
+# 3. Done! Open Claude Code in any directory:
+claude
+# Type /algolia- to see all 15 commands
 ```
 
-This copies all skills to `~/.claude/skills/`, making them available in **every** Claude Code project — terminal, VS Code, Antigravity, or any IDE with Claude Code support.
+The 13 brand skills work immediately. For the search audit + fact-check skills, you'll also need to [set up 3 MCP servers](#mcp-server-setup-for-search-audit).
+
+---
+
+## Installation by Environment
+
+### A. Claude Code CLI (Terminal)
+
+Works on macOS, Linux, and WSL. This is the primary way to use the skills.
+
+```bash
+# 1. Install Claude Code
+npm install -g @anthropic-ai/claude-code
+
+# 2. Clone the repo
+git clone https://github.com/arijitchowdhury80/algolia-claude-skills.git
+cd algolia-claude-skills/
+
+# 3. Run the installer — copies all skills to ~/.claude/skills/
+chmod +x install.sh
+./install.sh
+
+# 4. Set up MCP servers for search audit (see section below)
+
+# 5. (Optional) Copy project memory template for best results
+cp CLAUDE-template.md ~/.claude/CLAUDE.md
+
+# 6. Verify — open any terminal and run:
+claude
+# Then type: /algolia-search-audit
+# You should see it in the slash command autocomplete
+```
+
+### B. VS Code (with Claude Code Extension)
+
+VS Code uses the **same** `~/.claude/skills/` directory as the CLI. Install once, works in both.
+
+```bash
+# 1. Install the Claude Code extension in VS Code
+#    → Extensions sidebar (Cmd+Shift+X)
+#    → Search "Claude Code" by Anthropic
+#    → Click Install
+
+# 2. Clone and install skills (same as CLI)
+git clone https://github.com/arijitchowdhury80/algolia-claude-skills.git
+cd algolia-claude-skills/
+chmod +x install.sh
+./install.sh
+
+# 3. Set up MCP servers (same commands as CLI — see section below)
+
+# 4. Open VS Code → Claude Code panel → type /algolia-search-audit
+```
+
+**That's it** — VS Code reads from `~/.claude/skills/` and `~/.claude.json` just like the terminal CLI.
+
+### C. Google Antigravity (Cloud IDE)
+
+Antigravity uses the **same SKILL.md format** — the only difference is the directory path. No conversion needed.
+
+```bash
+# 1. Clone the repo in your Antigravity workspace
+git clone https://github.com/arijitchowdhury80/algolia-claude-skills.git
+
+# 2. Choose ONE of these install options:
+
+# Option A — Workspace scope (this project only):
+mkdir -p .agent/skills/
+cp -R algolia-claude-skills/skills/algolia-* .agent/skills/
+
+# Option B — Global scope (all your Antigravity projects):
+mkdir -p ~/.gemini/antigravity/skills/
+cp -R algolia-claude-skills/skills/algolia-* ~/.gemini/antigravity/skills/
+
+# 3. Set up MCP servers through Antigravity's IDE settings
+#    (same API keys/URLs as CLI — see MCP section below for the values)
+```
+
+### D. Another Machine / Different Account
+
+Same steps as above — just clone, install, and add your own API keys:
+
+```bash
+# On the new machine:
+git clone https://github.com/arijitchowdhury80/algolia-claude-skills.git
+cd algolia-claude-skills/
+chmod +x install.sh
+./install.sh
+
+# Add MCP servers with YOUR API keys (see next section)
+# Optionally copy project memory:
+cp CLAUDE-template.md ~/.claude/CLAUDE.md
+```
+
+### Quick Reference: Skill Locations by Environment
+
+| Environment | Skills directory | MCP config | Install method |
+|-------------|-----------------|------------|----------------|
+| **Claude Code CLI** | `~/.claude/skills/` | `~/.claude.json` | `./install.sh` |
+| **VS Code** | `~/.claude/skills/` | `~/.claude.json` | `./install.sh` |
+| **Antigravity (workspace)** | `.agent/skills/` | IDE settings | `cp -R` |
+| **Antigravity (global)** | `~/.gemini/antigravity/skills/` | IDE settings | `cp -R` |
+| **Cursor / Windsurf** | `~/.claude/skills/` (if using Claude Code backend) | `~/.claude.json` | `./install.sh` |
+
+---
+
+## MCP Server Setup (for Search Audit)
+
+The 13 brand content skills work immediately with zero setup. The search audit and fact-check skills need 3 MCP servers connected. Here's exactly how to set them up.
+
+### Step 1: Get Your API Keys
+
+You need API keys for two services:
+
+| Service | Where to get the key | Cost |
+|---------|---------------------|------|
+| **SimilarWeb** | [similarweb.com](https://www.similarweb.com/) → Account Settings → API (or ask your Algolia team lead for the shared key) | Paid API |
+| **BuiltWith** | [api.builtwith.com](https://api.builtwith.com/) → Sign up → API Keys | Free tier available |
+
+Chrome MCP doesn't need an API key — just a browser extension.
+
+### Step 2: Install Chrome MCP (Browser Automation)
+
+Chrome MCP lets Claude control a Chrome browser to run live search tests and capture screenshots.
+
+```bash
+# 1. Install the Chrome extension:
+#    → Go to Chrome Web Store
+#    → Search "Claude in Chrome" (by Anthropic)
+#    → Click "Add to Chrome"
+#    → Pin the extension to your toolbar
+#    Direct link: https://chromewebstore.google.com/detail/claude-in-chrome/
+
+# 2. Add it to Claude Code (--scope user makes it available in ALL projects):
+claude mcp add --transport sse --scope user \
+  "Chrome" http://127.0.0.1:21405/mcp/sse
+
+# 3. Verify — make sure Chrome is open with the extension active, then:
+claude
+# Type: "Take a screenshot of this browser tab"
+```
+
+### Step 3: Install SimilarWeb MCP (Traffic Data)
+
+SimilarWeb provides traffic, demographics, keywords, competitor data, and audience insights.
+
+```bash
+# Add SimilarWeb MCP — replace YOUR_KEY with your actual API key:
+claude mcp add --transport sse --scope user \
+  --header "Authorization: Bearer YOUR_SIMILARWEB_API_KEY" \
+  similarweb-mcp https://mcp.similarweb.com/sse
+
+# Verify:
+claude
+# Type: "Get traffic data for amazon.com"
+```
+
+### Step 4: Install BuiltWith MCP (Tech Stack Detection)
+
+BuiltWith detects search providers, e-commerce platforms, analytics, and other technologies.
+
+```bash
+# Add BuiltWith MCP — replace YOUR_KEY with your actual API key:
+claude mcp add --transport sse --scope user \
+  --header "Authorization: Bearer YOUR_BUILTWITH_API_KEY" \
+  builtwith https://mcp.builtwith.com/sse
+
+# Verify:
+claude
+# Type: "What technologies does shopify.com use?"
+```
+
+### Step 5: Verify All Servers
+
+```bash
+# List all configured MCP servers:
+claude mcp list
+
+# You should see:
+#   Chrome        (sse, user)
+#   similarweb-mcp (sse, user)
+#   builtwith     (sse, user)
+
+# Or inside Claude Code, type:
+/mcp
+# This shows connection status for all servers
+```
+
+### All-in-One Copy-Paste Setup
+
+If you have your API keys ready, run all three commands at once:
+
+```bash
+# Replace the two YOUR_*_KEY values with your actual keys:
+
+claude mcp add --transport sse --scope user \
+  "Chrome" http://127.0.0.1:21405/mcp/sse
+
+claude mcp add --transport sse --scope user \
+  --header "Authorization: Bearer YOUR_SIMILARWEB_API_KEY" \
+  similarweb-mcp https://mcp.similarweb.com/sse
+
+claude mcp add --transport sse --scope user \
+  --header "Authorization: Bearer YOUR_BUILTWITH_API_KEY" \
+  builtwith https://mcp.builtwith.com/sse
+```
+
+These commands store the config in `~/.claude.json` with `user` scope, making the servers available in **every** project — terminal, VS Code, and any Claude Code environment.
+
+### MCP Setup for Antigravity
+
+Antigravity has its own MCP configuration UI. The server URLs and API keys are the same:
+
+| Server | URL | Auth Header |
+|--------|-----|-------------|
+| Chrome | `http://127.0.0.1:21405/mcp/sse` | None |
+| SimilarWeb | `https://mcp.similarweb.com/sse` | `Authorization: Bearer YOUR_KEY` |
+| BuiltWith | `https://mcp.builtwith.com/sse` | `Authorization: Bearer YOUR_KEY` |
+
+Add these through Antigravity's **Settings → MCP/Tools** configuration panel using the SSE transport type.
+
+### Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Chrome MCP won't connect | Make sure Chrome is open with the extension active. Check port 21405. |
+| `claude mcp add` says "command not found" | Install Claude Code first: `npm install -g @anthropic-ai/claude-code` |
+| SimilarWeb returns "No data for requested country" | The skill handles this automatically by falling back to worldwide data |
+| BuiltWith returns "API Credits: 0" | Free tier credits exhausted. Skill falls back to SimilarWeb tech detection. |
+| Skills don't show up after install | Restart Claude Code. Skills are loaded at startup. |
+| `/algolia-search-audit` not found | Check that `~/.claude/skills/algolia-search-audit/SKILL.md` exists |
+| MCP servers not showing in `/mcp` | Run `claude mcp list` to check. Try `claude mcp remove <name>` and re-add. |
 
 ---
 
@@ -37,13 +276,13 @@ This copies all skills to `~/.claude/skills/`, making them available in **every*
 | `/algolia-ui-copy` | Write UI microcopy (tooltips, errors, empty states, buttons) |
 | `/algolia-boilerplate` | Get the right pre-approved company description for any context |
 
-### Search Audit Skill (1)
+### Search Audit Skill (v2.7)
 
 | Command | What it does |
 |---------|-------------|
 | `/algolia-search-audit <url>` | Run a full search experience audit on a prospect website |
 
-The search audit (v2.7) automates a 5-phase process:
+The search audit automates a 5-phase process:
 
 1. **Pre-Audit Research (14 steps)** — Company context + financials + executives, tech stack deep dive (BuiltWith + relationships), traffic deep dive (6 SimilarWeb calls), competitor identification, vertical test query generation, competitor search analysis (BuiltWith per competitor — golden angle if competitor uses Algolia), strategic angle mining + negative signals, hiring signal detection, financial context + ROI estimate, trigger event synthesis, investor intelligence (10-K/earnings call analysis), deep hiring analysis (careers page visit, role counts, JD analysis), ICP-to-priority mapping
 2. **Browser Testing (20 steps)** — 12 core search tests + 8 Algolia value-prop tests (NLP, dynamic facets, popular searches, personalization, recommendations, merchandising rules, analytics visibility)
@@ -57,7 +296,7 @@ The search audit (v2.7) automates a 5-phase process:
    - AE Pre-Call Brief (internal, not for prospect)
    - Strategic Signal Brief (LLM-optimized 1-pager)
 
-### Audit Fact-Check Skill (1)
+### Audit Fact-Check Skill
 
 | Command | What it does |
 |---------|-------------|
@@ -93,184 +332,43 @@ Verifies audit output across 7 dimensions: cross-file consistency, math & logic,
 
 ---
 
-## Using with Different IDEs
+## Audit Output Files
 
-Claude Code skills live in `~/.claude/skills/` — this is a **user-level** directory, not project-level. Once installed, skills work everywhere:
+Each search audit produces 6 files in the working directory:
 
-| Environment | How to use |
-|-------------|-----------|
-| **Terminal (Claude Code CLI)** | `claude` in any directory, then type `/algolia-search-audit url` |
-| **VS Code** | Install the [Claude Code extension](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code). Skills appear in the slash command menu. |
-| **Antigravity** | Skills auto-discover from `~/.claude/skills/` — same as terminal. |
-| **Cursor / Windsurf** | If using Claude Code as the AI backend, skills are available. If using native AI, skills won't work (they're Claude Code-specific). |
+| # | File | Purpose |
+|---|------|---------|
+| 1 | `{company}-search-audit.md` | Full report with strategic intelligence, investor quotes, findings |
+| 2 | `{company}-landing-page.html` | Dual-view landing page with strategic + competitor sections |
+| 3 | `{company}-search-audit-deck.md` | ~30-33 slide McKinsey Pyramid + Cold Open presentation |
+| 4 | `{company}-landing-page.md` | Content spec for the landing page |
+| 5 | `{company}-ae-precall-brief.md` | Internal AE pre-call brief (not for prospect) |
+| 6 | `{company}-strategic-signal-brief.md` | 1-page LLM-optimized strategic signal brief |
 
-### Using Under a Different Account
+Plus a `screenshots/` directory with browser screenshots from the audit.
 
-If you're installing on a different machine or under a different user account:
+### Using Audit Output with NotebookLM
 
-1. Clone the repo: `git clone https://github.com/arijitchowdhury80/algolia-claude-skills.git`
-2. Run `./install.sh`
-3. Set up MCP servers (see Prerequisites below) — you'll need your own API keys
-4. Optionally copy the `CLAUDE.md` template (see below) to `~/.claude/CLAUDE.md` for project memory
+To create a slide deck from audit output using Google NotebookLM:
 
-### Optional: CLAUDE.md Project Memory
+1. Upload these **4 files** as sources (not all 6 + scratchpad):
+   - `{company}-search-audit-deck.md` (primary — contains the full story arc)
+   - `{company}-strategic-signal-brief.md` (dense signal format for LLM consumption)
+   - `{company}-search-audit.md` (full report for depth)
+   - `{company}-landing-page.html` (visual structure reference)
+2. Use the "Slide Deck" feature with the prompt from `notebooklm-deck-prompt.md`
 
-The search audit skill works best with project memory in `~/.claude/CLAUDE.md`. A template is included:
+**Do NOT upload scratchpad files** — their content is already incorporated into the deliverables. Uploading both creates RAG retrieval confusion.
 
-```bash
-cp CLAUDE-template.md ~/.claude/CLAUDE.md
-```
+### Rendering Audit Output
 
-This gives Claude Code context about the audit methodology, version history, and completed audits. It's optional but recommended for best results.
-
----
-
-## Prerequisites
-
-### For Brand Content Skills (no extra setup needed)
-The 13 brand skills work out of the box with any Claude Code installation. No additional MCP servers or API keys required.
-
-### For Search Audit + Fact-Check Skills (3 MCP servers required)
-
-The search audit skill uses browser automation, traffic analytics, and technology detection. You'll need to set up three MCP (Model Context Protocol) servers:
-
-#### 1. Chrome MCP (Browser Automation & Screenshots)
-
-Chrome MCP lets Claude Code control a Chrome browser to run live search tests and capture screenshots.
-
-**Install the Chrome extension:**
-1. Go to the Chrome Web Store and search for **"Claude in Chrome"** (by anthropic)
-   - Direct link: https://chromewebstore.google.com/detail/claude-in-chrome/
-2. Click **"Add to Chrome"**
-3. Pin the extension to your toolbar
-
-**Configure Claude Code to use it:**
-Add to your `~/.claude/settings.json` (under `"mcpServers"`):
-
-```json
-{
-  "mcpServers": {
-    "Claude in Chrome": {
-      "type": "sse",
-      "url": "http://127.0.0.1:21405/mcp/sse"
-    }
-  }
-}
-```
-
-**Verify it works:**
-1. Open Chrome with the extension active
-2. In Claude Code, type: "Take a screenshot of this browser tab"
-3. If it works, Chrome MCP is connected
-
-**Documentation:** https://docs.anthropic.com/en/docs/claude-code/mcp
-
-#### 2. SimilarWeb MCP (Traffic & Engagement Data)
-
-SimilarWeb provides monthly visits, bounce rate, traffic sources, demographics, and technology stack data.
-
-**Get your API key:**
-1. Go to https://www.similarweb.com/
-2. Sign up for an account or log into your existing one
-3. Navigate to **Account Settings > API** (or ask your Algolia team lead — we may have a shared key)
-4. Copy your API key
-
-**Configure Claude Code:**
-Add to your `~/.claude/settings.json` (under `"mcpServers"`):
-
-```json
-{
-  "mcpServers": {
-    "similarweb-mcp": {
-      "type": "sse",
-      "url": "https://mcp.similarweb.com/sse",
-      "headers": {
-        "Authorization": "Bearer YOUR_SIMILARWEB_API_KEY"
-      }
-    }
-  }
-}
-```
-
-Replace `YOUR_SIMILARWEB_API_KEY` with your actual key.
-
-**Verify it works:**
-In Claude Code, type: "Get traffic data for amazon.com"
-
-**Documentation:** https://developers.similarweb.com/docs
-
-#### 3. BuiltWith MCP (Technology Stack Detection)
-
-BuiltWith detects what search provider, e-commerce platform, analytics tools, and other technologies a website uses.
-
-**Get your API key:**
-1. Go to https://builtwith.com/
-2. Sign up for a free or paid account
-3. Go to **API > Keys** at https://api.builtwith.com/
-4. Copy your API key
-
-**Configure Claude Code:**
-Add to your `~/.claude/settings.json` (under `"mcpServers"`):
-
-```json
-{
-  "mcpServers": {
-    "builtwith": {
-      "type": "sse",
-      "url": "https://mcp.builtwith.com/sse",
-      "headers": {
-        "Authorization": "Bearer YOUR_BUILTWITH_API_KEY"
-      }
-    }
-  }
-}
-```
-
-Replace `YOUR_BUILTWITH_API_KEY` with your actual key.
-
-**Verify it works:**
-In Claude Code, type: "What technologies does shopify.com use?"
-
-**Documentation:** https://api.builtwith.com/
-
-### Complete `~/.claude/settings.json` Example
-
-Here's what your full settings file should look like with all three MCP servers:
-
-```json
-{
-  "mcpServers": {
-    "Claude in Chrome": {
-      "type": "sse",
-      "url": "http://127.0.0.1:21405/mcp/sse"
-    },
-    "similarweb-mcp": {
-      "type": "sse",
-      "url": "https://mcp.similarweb.com/sse",
-      "headers": {
-        "Authorization": "Bearer YOUR_SIMILARWEB_API_KEY"
-      }
-    },
-    "builtwith": {
-      "type": "sse",
-      "url": "https://mcp.builtwith.com/sse",
-      "headers": {
-        "Authorization": "Bearer YOUR_BUILTWITH_API_KEY"
-      }
-    }
-  }
-}
-```
-
-### Troubleshooting MCP Setup
-
-| Problem | Solution |
-|---------|----------|
-| Chrome MCP won't connect | Make sure Chrome is open and the extension is active. Check that port 21405 is not blocked. |
-| SimilarWeb returns "No data for requested country" | Try using worldwide data — the skill handles this automatically |
-| BuiltWith returns "API Credits: 0" | Your free tier credits are exhausted. The skill falls back to SimilarWeb tech detection automatically. |
-| Skills don't show up after install | Restart Claude Code. Skills are loaded at startup. |
-| `/algolia-search-audit` not found | Check that `~/.claude/skills/algolia-search-audit/SKILL.md` exists |
+| Method | Best for |
+|--------|----------|
+| **VS Code Preview** | Quick markdown preview (Cmd+Shift+V) |
+| **Browser** | Open the `.html` landing page directly |
+| **Marked.js** | Convert markdown to styled HTML: `npx marked -i report.md -o report.html` |
+| **Marp** | Convert deck markdown to actual slides: `npx @marp-team/marp-cli deck.md --html` |
+| **Pandoc** | Convert to PDF/DOCX: `pandoc report.md -o report.pdf` |
 
 ---
 
@@ -311,59 +409,37 @@ Each skill is a `SKILL.md` file that Claude Code auto-discovers from `~/.claude/
 
 ---
 
-## Audit Output Files
+## Optional: Project Memory (CLAUDE.md)
 
-Each search audit produces 6 files in the working directory:
+The search audit skill works best with project memory. A template is included:
 
-| # | File | Purpose |
-|---|------|---------|
-| 1 | `{company}-search-audit.md` | Full report with strategic intelligence, investor quotes, findings |
-| 2 | `{company}-landing-page.html` | Dual-view landing page with strategic + competitor sections |
-| 3 | `{company}-search-audit-deck.md` | ~30-33 slide McKinsey Pyramid + Cold Open presentation |
-| 4 | `{company}-landing-page.md` | Content spec for the landing page |
-| 5 | `{company}-ae-precall-brief.md` | Internal AE pre-call brief (not for prospect) |
-| 6 | `{company}-strategic-signal-brief.md` | 1-page LLM-optimized strategic signal brief |
+```bash
+cp CLAUDE-template.md ~/.claude/CLAUDE.md
+```
 
-Plus a `screenshots/` directory with browser screenshots from the audit.
-
-### Using Audit Output with NotebookLM
-
-To create a slide deck from audit output using Google NotebookLM:
-
-1. Upload these **4 files** as sources (not all 6 + scratchpad):
-   - `{company}-search-audit-deck.md` (primary — contains the full story arc)
-   - `{company}-strategic-signal-brief.md` (dense signal format for LLM consumption)
-   - `{company}-search-audit.md` (full report for depth)
-   - `{company}-landing-page.html` (visual structure reference)
-2. Use the "Slide Deck" feature with the prompt from `notebooklm-deck-prompt.md`
-
-**Do NOT upload scratchpad files** — their content is already incorporated into the deliverables. Uploading both creates RAG retrieval confusion.
-
----
-
-## Rendering Audit Output
-
-The audit produces markdown and HTML files. Options for viewing:
-
-| Method | Best for |
-|--------|----------|
-| **VS Code Preview** | Quick markdown preview (Cmd+Shift+V) |
-| **Browser** | Open the `.html` landing page directly |
-| **Marked.js** | Convert markdown to styled HTML: `npx marked -i report.md -o report.html` |
-| **Marp** | Convert deck markdown to actual slides: `npx @marp-team/marp-cli deck.md --html` |
-| **Pandoc** | Convert to PDF/DOCX: `pandoc report.md -o report.pdf` |
+This gives Claude Code context about the audit methodology, version history, and completed audits. It's optional but recommended for best results.
 
 ---
 
 ## Uninstall
 
 ```bash
+# Remove all Algolia skills:
 rm -rf ~/.claude/skills/algolia-*
+
+# Remove MCP servers:
+claude mcp remove Chrome
+claude mcp remove similarweb-mcp
+claude mcp remove builtwith
 ```
 
 ## Updating
 
-To update to a newer version, `git pull` and re-run `install.sh` — it overwrites existing files.
+```bash
+cd algolia-claude-skills/
+git pull
+./install.sh
+```
 
 ## Version History
 
@@ -383,4 +459,4 @@ All brand guidelines are derived from the official Algolia brand guide at [algol
 
 - **Brand skills issues**: Contact the brand/marketing team
 - **Search audit issues**: Contact Arijit Chowdhury
-- **MCP server setup help**: See [Claude Code MCP docs](https://docs.anthropic.com/en/docs/claude-code/mcp) or ask in the #claude-code Slack channel
+- **MCP server setup help**: See [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) or ask in the #claude-code Slack channel
