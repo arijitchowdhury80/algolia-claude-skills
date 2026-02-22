@@ -1,0 +1,724 @@
+---
+name: algolia-audit-factcheck
+description: Fact-check and validate the outputs of an Algolia Search Audit. Verifies all claims across 7 dimensions (cross-file consistency, math, reference data, API accuracy, citations, quotes, browser observations), produces a scored confidence report, a machine-readable correction manifest, and a methodology feedback file. Uses team mode for parallel verification. Run after /algolia-search-audit to validate before sharing deliverables.
+---
+
+# Algolia Audit Fact-Check (v1.0)
+
+Validate every factual claim across all deliverables produced by `/algolia-search-audit`. Catches cross-file inconsistencies, math errors, stale API data, broken citations, unverifiable quotes, and scratchpad-to-deliverable drift. Produces 3 output files: a human-readable confidence report, a machine-readable correction manifest, and a methodology feedback file for continuous skill improvement.
+
+## Input
+
+Accept a path to an audit directory as `$ARGUMENTS` (e.g., `costco-v2/`, `therealreal-v2/`).
+
+If no path is provided, look for the most recently modified `*-audit-workspace/` directory in the current working directory. If none found, ask the user.
+
+Optionally the user may specify:
+- **Tier**: `quick` (default), `standard`, or `full` — controls depth of external verification
+- **Focus**: Specific dimension number(s) to run (e.g., `--dim 1,4` to run only cross-file consistency and API accuracy)
+
+## Execution Tiers
+
+| Tier | Time | External Calls | What Runs |
+|------|------|----------------|-----------|
+| **Quick** | ~3-5 min | 0 | All dimensions, read-only. Catches consistency, math, reference errors. Best for fast pre-share checks. |
+| **Standard** | ~10-15 min | ~15-20 | + SimilarWeb/BuiltWith re-calls for prospect + WebFetch sample source URLs + transcript verification |
+| **Full** | ~25-40 min | ~30-40 + browser | + Competitor API re-calls + all source URLs verified + Chrome MCP re-tests of top 5 queries |
+
+## Process
+
+### Phase 0: Discovery & Workspace Setup
+
+1. **Locate audit files** — Scan the provided directory for:
+   - **Deliverables** (6 files): `{company}-search-audit.md`, `{company}-landing-page.html`, `{company}-search-audit-deck.md`, `{company}-landing-page.md`, `{company}-ae-precall-brief.md`, `{company}-strategic-signal-brief.md`
+   - **Workspace** (11+ files): `{company}-audit-workspace/` containing `01-company-context.md` through `11-investor-intelligence.md` plus `_workspace-manifest.md`
+   - **Screenshots**: `screenshots/` directory — count files present
+
+2. **Extract company slug** — Derive from filenames (e.g., `costco` from `costco-search-audit.md`)
+
+3. **Read workspace manifest** — `_workspace-manifest.md` shows which Phase 1 steps were completed
+
+4. **Create factcheck workspace**:
+   ```
+   {company}-factcheck/
+   ├── claim-registry.md          ← Phase 1 output (Agent 1)
+   ├── dim-1-2-3-results.md       ← Phase 1 output (Agent 1)
+   ├── dim-4-api-results.md       ← Phase 2 output (Agent 2)
+   ├── dim-5-6-citation-results.md ← Phase 2 output (Agent 3)
+   ├── dim-7-browser-results.md   ← Phase 2 output (Agent 4)
+   ├── pattern-analysis.md        ← Phase 2 output (Agent 5)
+   └── _factcheck-manifest.md     ← Progress tracking
+   ```
+
+5. **File inventory** — Count and list all files found. If fewer than 6 deliverables exist, note which are missing. If workspace files are absent, flag that Quick tier can only verify deliverable-internal consistency.
+
+### Phase 1: Claim Registry + Read-Only Dimensions (Sequential — Agent 1)
+
+> **This phase MUST complete before Phase 2 starts.** Agent 1 builds the master claim registry that all subsequent agents reference.
+
+Spawn **Agent 1: Claim Registry Builder** (subagent_type: `general-purpose`) with the following task:
+
+#### Agent 1 Task: Build Claim Registry + Run Dimensions 1-3
+
+**Step 1: Build the Master Claim Registry**
+
+Read ALL files (deliverables + workspace) and extract every verifiable data point into a structured registry. Track each data point across every file where it appears.
+
+**Data Points to Extract** (organized by source):
+
+| Category | Data Points | Primary Source (scratchpad) | Check In (deliverables) |
+|----------|-------------|---------------------------|------------------------|
+| **Traffic** | monthly_visits, bounce_rate, pages_per_visit, avg_duration, unique_visitors | 03-traffic-data.md | report, landing page, deck, signal brief |
+| **Traffic Sources** | direct_share, organic_share, paid_share, social_share, referral_share, mail_share | 03-traffic-data.md | report, landing page, deck, signal brief |
+| **Demographics** | male_share, female_share, age_18_24, age_25_34, age_35_44, age_45_54, age_55_64, age_65_plus | 03-traffic-data.md | report, landing page |
+| **Geography** | top_country_1 (name + share), top_country_2, top_country_3 | 03-traffic-data.md | report |
+| **Company** | revenue, net_income, operating_margin, ebitda_margin, margin_zone, employee_count, store_count, founding_year, public_private | 01-company-context.md, 08-financial-profile.md | report, landing page, deck, AE brief, signal brief |
+| **Executives** | exec_name, exec_title, exec_since (for each) | 01-company-context.md | report, AE brief, deck, signal brief |
+| **Tech Stack** | search_provider, ecommerce_platform, cdn, analytics, personalization, recommendations, cms, payments, bot_detection | 02-tech-stack.md | report, landing page, deck |
+| **Competitors** | competitor_name, competitor_search_provider, competitor_traffic, competitor_bounce, uses_algolia (for each) | 04-competitors.md | report, landing page, deck, signal brief |
+| **Scoring** | overall_score, area_scores (10), severity_counts (HIGH/MEDIUM/LOW), gap_count, strength_count | 10-scoring-matrix.md | report, landing page, deck, signal brief |
+| **ROI** | total_revenue, digital_share_pct, search_share_pct, improvement_pct, conservative_estimate, moderate_estimate | 08-financial-profile.md | report, AE brief, deck, signal brief |
+| **Investor Quotes** | quote_text, quote_source, quote_date, quote_speaker, maps_to_product (for each) | 11-investor-intelligence.md | report, deck, signal brief |
+| **Hiring** | total_relevant_roles, roles_by_category, signal_strength, build_vs_buy_risk | 07-hiring-signals.md | report, AE brief, deck, signal brief |
+| **Browser Observations** | query_tested, result_count, behavior_observed, screenshot_ref (for each test step) | 09-browser-findings.md | report, landing page, deck |
+| **SAIM Stats** | stat_text, stat_source (for each cited industry stat) | (reference: memory/search-audit-impact-map.md) | report, landing page, deck |
+| **Trigger Events** | event_description, evidence, source_url, implication (for each) | 06-strategic-context.md | report, AE brief, deck, signal brief |
+
+**Registry Format** — Write to `claim-registry.md`:
+```markdown
+# Claim Registry — {Company}
+
+## Data Point: {name} (e.g., "monthly_visits")
+| File | Value | Line/Location |
+|------|-------|--------------|
+| 03-traffic-data.md | 100.9M | L12 |
+| costco-search-audit.md | 100.9M | L45 |
+| costco-landing-page.html | 100.9M | L234 |
+| costco-search-audit-deck.md | 100.9M | Slide 3 |
+| costco-strategic-signal-brief.md | 100.9M | Money section |
+| MEMORY.md (project) | 100.9M | Costco section |
+STATUS: [CONS] — All files agree
+
+## Data Point: {name} (e.g., "bounce_rate")
+| File | Value | Line/Location |
+|------|-------|--------------|
+| 03-traffic-data.md | 37.2% | L14 |
+| costco-search-audit.md | 31.3% | L169 |
+| MEMORY.md (project) | 31.3% | Costco section |
+STATUS: [DISC] — Scratchpad says 37.2%, deliverables say 31.3%
+SOURCE OF TRUTH: 03-traffic-data.md (direct SimilarWeb API output)
+```
+
+**Step 2: Run Dimension 1 — Cross-File Consistency (Weight: 15%)**
+
+For each data point in the registry:
+- If ALL files agree → `[CONS]`
+- If files disagree → `[DISC]` + identify the source of truth (scratchpad file = ground truth)
+- If data point exists in scratchpad but is MISSING from a deliverable that should include it → `[MISS]`
+
+**Consistency Rules**:
+- Numbers must match exactly (100.9M everywhere, not 100.9M in one file and 101M in another)
+- Percentages must match to 1 decimal (37.2% everywhere, not 37.2% and 37%)
+- Executive names and titles must match exactly
+- Competitor names and their search providers must match
+- Score counts must add up (e.g., "3 HIGH, 5 MEDIUM, 2 LOW" = 10 total areas)
+- Margin zone must match classification rules (Red ≤10%, Yellow 10-20%, Green >20%)
+
+**Step 3: Run Dimension 2 — Math & Logic (Weight: 10%)**
+
+Verify all arithmetic and logical claims:
+
+1. **ROI Calculation**: Re-derive from components:
+   ```
+   Revenue Addressable = Total Revenue × Digital Share % × Search Share (15%)
+   Conservative = Revenue Addressable × 5%
+   Moderate = Revenue Addressable × 10%
+   ```
+   Compare calculated values to reported values. Flag if difference > 1%.
+
+2. **Scoring Arithmetic**:
+   - Count HIGH/MEDIUM/LOW severities in the scoring matrix → must match stated counts
+   - Overall score must be consistent with individual area scores
+   - Gap count + strength count should = 10 (total areas)
+
+3. **Percentage Sums**:
+   - Traffic source shares should sum to ~100% (allow ±2% for rounding)
+   - Demographics age groups should sum to ~100% (allow ±2%)
+   - Gender shares should sum to ~100% (allow ±1%)
+
+4. **Margin Zone Classification**:
+   - Verify EBITDA margin maps to correct zone: ≤10% = Red, 10-20% = Yellow, >20% = Green
+   - Check that sales motion advice matches the zone
+
+5. **Date Consistency**: Audit date, filing dates, data periods should be internally consistent
+
+**Step 4: Run Dimension 3 — Reference Data (Weight: 10%)**
+
+Read `memory/search-audit-impact-map.md` (the SAIM reference) and verify every cited industry stat:
+
+1. **SAIM Stats**: For each "Why it matters" section in the report, verify the stat matches SAIM:
+   - "39% of shoppers leave if search is slow" → must match SAIM
+   - "1 in 6 queries have typos" → must match SAIM
+   - "75% leave after no results" → must match SAIM
+   - etc.
+
+2. **Algolia Approved Stats**: Verify:
+   - "17,000+ customers" (not 17,500 or 18,000)
+   - "1.75T searches" or "1.7 trillion searches/year"
+   - "30 billion records indexed"
+
+3. **Case Study Metrics**: Cross-check any customer case study citations:
+   - "Lacoste: 37% increase in search revenue" → must match reference
+   - "Decathlon: 50% search conversion boost" → must match reference
+   - "Herschel: 80% no-results reduction" → must match reference
+
+4. **Product Names**: Verify Algolia product names are correct:
+   - "Algolia Search", "Algolia Recommend", "Algolia NeuralSearch", "Algolia AI Search"
+   - NOT: "Algolia search" (lowercase), "Algolia's Search" (possessive)
+
+**Output**: Write combined results to `dim-1-2-3-results.md` with per-claim status tables.
+
+---
+
+### Phase 2: External Verification (Parallel — Agents 2-5)
+
+> **All 4 agents run in parallel.** Each reads the claim registry from Phase 1 and performs dimension-specific verification. Agent 5 waits for Agents 2-4 to complete before generating pattern analysis.
+
+#### Agent 2: API Data Accuracy (Dimension 4, Weight: 20%)
+
+Spawn with `subagent_type: general-purpose`, `name: "api-verifier"`.
+
+**Quick tier**: Read-only. Cross-reference scratchpad values against claim registry. Check that API endpoint names match expected sources (e.g., traffic data should cite SimilarWeb, tech stack should cite BuiltWith). Flag any data point with no clear API source attribution.
+
+**Standard tier** (in addition to Quick):
+- Re-call SimilarWeb `get-websites-traffic-and-engagement` for the prospect domain
+- Re-call SimilarWeb `get-websites-demographics-agg` for the prospect domain
+- Re-call BuiltWith `domain-lookup` for the prospect domain
+- Compare fresh values to audit values:
+  - If within ±15% → `[PASS]` (normal monthly drift)
+  - If drift 15-30% → `[STALE]` with drift %
+  - If drift >30% → `[DISC]` — data may be wrong or significantly outdated
+  - If key technology removed/added since audit → `[STALE]` with note
+
+**Full tier** (in addition to Standard):
+- Re-call SimilarWeb for each competitor (traffic-and-engagement)
+- Re-call BuiltWith `domain-lookup` for each competitor
+- Verify competitor search provider assignments still match
+
+**Tolerance Band**: 15% for all SimilarWeb metrics. SimilarWeb data is estimated and shifts monthly — this is normal, not an error. BuiltWith tech presence is binary (present/absent) — changes here ARE significant.
+
+**Output**: Write to `dim-4-api-results.md`.
+
+#### Agent 3: Source Citations + Investor Quotes (Dimensions 5-6, Weight: 30%)
+
+Spawn with `subagent_type: general-purpose`, `name: "citation-verifier"`.
+
+**Dimension 5: Source Citation Integrity (Weight: 15%)**
+
+**Quick tier**: Read-only.
+- Scan all deliverables for hyperlinks and source attributions
+- Count total citations vs. total data points → calculate citation coverage %
+- Check for common citation issues:
+  - "Source: web search" without URL → `[UNVF]`
+  - URL present but domain doesn't match attribution (e.g., source says "10-K" but URL is a blog) → `[DISC]`
+  - Data point has NO source attribution at all → `[MISS]`
+- Check scratchpad files for `Source:` lines after each data point
+
+**Standard tier** (in addition to Quick):
+- WebFetch 10-15 of the most important source URLs to verify they resolve (not 404/dead)
+- For each resolved URL: check that the page topic matches the claimed source context
+- Verify at least 1 earnings call transcript URL, 1 company IR URL, 1 careers page URL
+
+**Full tier** (in addition to Standard):
+- WebFetch ALL source URLs found in deliverables + scratchpad
+- Report link rot rate (% of URLs that are dead or redirected)
+
+**Dimension 6: Investor Quote Verification (Weight: 15%)**
+
+**Quick tier**: Read-only.
+- Extract every quote (text in quotation marks attributed to a person) from all deliverables
+- For each quote: check if it appears in `11-investor-intelligence.md`
+- Traceability matrix:
+  | Quote Text | In Scratchpad? | In Report? | In Deck? | In Signal Brief? | Source URL? |
+  - Quote in deliverable but NOT in scratchpad → `[UNVF]` (late-added, bypassed ground truth)
+  - Quote in scratchpad AND deliverable with matching text → `[CONS]`
+  - Quote in scratchpad with source URL → `[PASS]` (fully traceable)
+  - Quote text differs between files (e.g., misquoted, paraphrased) → `[DISC]`
+
+**Standard tier** (in addition to Quick):
+- WebFetch the source URL for each quote → search the page text for the exact quote
+- If quote text found on source page → `[PASS]` (externally verified)
+- If quote NOT found on source page → `[UNVF]` (URL exists but quote not confirmed)
+- If source URL is dead → `[UNVF]` (cannot verify)
+
+**Full tier** (in addition to Standard):
+- WebFetch ALL earnings call transcript URLs
+- Search each transcript for related quotes (may find additional quotable material)
+
+**Output**: Write to `dim-5-6-citation-results.md`.
+
+#### Agent 4: Browser Observation Fidelity (Dimension 7, Weight: 15%)
+
+Spawn with `subagent_type: general-purpose`, `name: "browser-verifier"`.
+
+**Quick tier**: Read-only.
+- Read `09-browser-findings.md` and extract all query → result observations
+- Cross-reference with report gap descriptions: do the queries, result counts, and behaviors match?
+- Check screenshot references: do referenced screenshot files exist in `screenshots/` directory?
+- Count total screenshots expected vs. present
+- For each gap in the report: verify the supporting observation exists in 09-browser-findings.md
+  - Observation matches report → `[CONS]`
+  - Report claims something not in scratchpad → `[UNVF]`
+  - Report numbers differ from scratchpad → `[DISC]`
+
+**Standard tier** (in addition to Quick):
+- Verify screenshot files exist on disk (ls the screenshots/ directory)
+- Check file sizes (>0 bytes = valid, 0 bytes = corrupted)
+- Count screenshots vs. expected (20 steps = ~20 screenshots expected)
+
+**Full tier** (in addition to Standard):
+- Use Chrome MCP to re-test the top 5 most impactful queries on the prospect site
+- Compare current results to audit observations
+- If results changed significantly → `[STALE]` with current vs. audit values
+- Take new screenshots for comparison
+
+**Output**: Write to `dim-7-browser-results.md`.
+
+#### Agent 5: Pattern Analysis (runs AFTER Agents 2-4 complete)
+
+Spawn with `subagent_type: general-purpose`, `name: "pattern-analyzer"`.
+
+> **Timing**: Agent 5 starts in Phase 2 but only produces output after reading all dim results. For Quick tier, it can start immediately since Agents 2-4 are also read-only. For Standard/Full tiers, it should wait for Agents 2-4 dimension result files to be written.
+
+**Task**: Read all dimension results (dim-1-2-3, dim-4, dim-5-6, dim-7) and the claim registry. Analyze patterns across ALL issues found to produce the skill feedback file.
+
+**Pattern Detection Rules**:
+
+1. **Scratchpad-to-Deliverable Drift**: If >2 data points in claim registry show `[DISC]` between scratchpad and deliverable → pattern detected. Root cause: Phase 4 report generation reads from context memory rather than re-reading scratchpad files.
+
+2. **Source URL Coverage Gaps**: Calculate % of scratchpad data points that have `Source:` lines. If <70% → pattern detected. Identify which scratchpad files have the worst coverage.
+
+3. **Investor Quotes Without Scratchpad Trace**: If any `[UNVF]` quotes appear in deliverables but not in `11-investor-intelligence.md` → pattern detected. Root cause: quotes added during Phase 4 from context, bypassing scratchpad.
+
+4. **Math Errors in ROI/Scoring**: If Dimension 2 found any `[FAIL]` in arithmetic → pattern detected. Identify whether error is in formula application or in input values.
+
+5. **SAIM Stat Misquotes**: If Dimension 3 found any `[FAIL]` in reference data → pattern detected. Track which stats are most commonly misquoted.
+
+6. **Stale Data Prevalence**: If Dimension 4 found >3 `[STALE]` items → pattern detected. Track average drift % and stalest data category.
+
+7. **Screenshot Coverage**: If Dimension 7 found <50% expected screenshots present → pattern detected. Root cause: session-bound IDs not persisted.
+
+8. **Citation Asymmetry**: If source URL coverage differs significantly between scratchpad files (e.g., 02-tech-stack has 90% coverage but 01-company-context has 30%) → pattern detected. Root cause: different Phase 1 steps have different enforcement levels.
+
+**Output**: Write to `pattern-analysis.md` using the skill feedback template (see Output 3 below).
+
+---
+
+### Phase 3: Score Aggregation + Output Generation
+
+After all agents complete, the team lead (main conversation) collects all dimension results and generates the 3 output files.
+
+#### Scoring Methodology
+
+**Per-Dimension Score** (0-10 scale):
+
+```
+Base Score = 10 × (PASS_count + CONS_count) / total_claims
+
+Penalties:
+  FAIL  → -1.5 per occurrence
+  DISC  → -1.0 per occurrence
+  UNVF  → -0.5 per occurrence
+  STALE → -0.25 per occurrence
+  MISS  → -0.25 per occurrence
+
+Dimension Score = max(0, Base Score + Penalties)
+```
+
+**Overall Score** = Weighted average:
+
+| Dimension | Weight |
+|-----------|--------|
+| 1. Cross-File Consistency | 15% |
+| 2. Math & Logic | 10% |
+| 3. Reference Data | 10% |
+| 4. API Data Accuracy | 20% |
+| 5. Source Citation Integrity | 15% |
+| 6. Investor Quote Verification | 15% |
+| 7. Browser Observation Fidelity | 15% |
+
+**Verdict**:
+- **8.0+ = HIGH CONFIDENCE** — Safe to share with AE/prospect. Minor issues only.
+- **6.0-7.9 = MODERATE** — Review flagged issues before sharing. Fix `[DISC]` and `[FAIL]` items.
+- **<6.0 = LOW CONFIDENCE** — Fix required before sharing. Multiple material errors detected.
+
+#### Claim Verification Statuses
+
+| Status | Symbol | Meaning | Severity |
+|--------|--------|---------|----------|
+| VERIFIED | `[PASS]` | Confirmed correct against external source or traceable through full chain | None |
+| CONSISTENT | `[CONS]` | Matches across all files (no external check performed) | None |
+| STALE | `[STALE]` | Was correct at time of audit but live data has drifted >15% | Low |
+| DISCREPANT | `[DISC]` | Different values found across files | High |
+| UNVERIFIABLE | `[UNVF]` | Source broken, no scratchpad trace, or session-bound screenshot | Medium |
+| INCORRECT | `[FAIL]` | Demonstrably wrong (math error, fabricated stat, misattribution) | Critical |
+| MISSING | `[MISS]` | Expected data point absent from deliverable that should include it | Medium |
+
+---
+
+## Output
+
+The fact-check produces THREE files in the audit directory:
+
+### Output 1: `{company}-factcheck-report.md`
+
+Human-readable scored verification report.
+
+```markdown
+# {Company} — Audit Fact-Check Report
+*Generated by /algolia-audit-factcheck v1.0 on {date}*
+*Tier: {Quick/Standard/Full} | Files scanned: {count} | Claims verified: {count}*
+
+---
+
+## Verification Summary
+
+| # | Dimension | Claims | PASS | CONS | STALE | DISC | UNVF | FAIL | MISS | Score |
+|---|-----------|--------|------|------|-------|------|------|------|------|-------|
+| 1 | Cross-File Consistency | {n} | {n} | {n} | — | {n} | — | — | {n} | {x}/10 |
+| 2 | Math & Logic | {n} | {n} | {n} | — | {n} | — | {n} | — | {x}/10 |
+| 3 | Reference Data | {n} | {n} | {n} | — | — | — | {n} | — | {x}/10 |
+| 4 | API Data Accuracy | {n} | {n} | {n} | {n} | {n} | {n} | — | — | {x}/10 |
+| 5 | Source Citation Integrity | {n} | {n} | {n} | — | {n} | {n} | — | {n} | {x}/10 |
+| 6 | Investor Quote Verification | {n} | {n} | {n} | — | {n} | {n} | {n} | — | {x}/10 |
+| 7 | Browser Observation Fidelity | {n} | {n} | {n} | {n} | {n} | {n} | — | — | {x}/10 |
+| | **OVERALL** | **{N}** | | | | | | | | **{X}/10** |
+
+## Verdict: {HIGH CONFIDENCE / MODERATE / LOW CONFIDENCE}
+
+{1-2 sentence summary. E.g., "The Costco audit scores 6.8/10 (MODERATE). Three data discrepancies between scratchpad and deliverables need correction before sharing. All SAIM stats and ROI math check out."}
+
+---
+
+## Critical Issues (fix before sharing)
+
+> These are `[FAIL]` and `[DISC]` items that represent material errors in the deliverables.
+
+| # | Issue | Status | Data Point | Wrong Value | Correct Value | Affected Files |
+|---|-------|--------|-----------|------------|---------------|---------------|
+| 1 | {description} | [DISC] | bounce_rate | 31.3% | 37.2% | report L169, MEMORY.md |
+| 2 | {description} | [FAIL] | roi_conservative | $150M | $148M | landing-page.html L456 |
+
+## Warnings (review before sharing)
+
+> These are `[STALE]`, `[UNVF]`, and `[MISS]` items that may or may not need action.
+
+| # | Issue | Status | Details | Recommendation |
+|---|-------|--------|---------|---------------|
+| 1 | {description} | [UNVF] | CEO quote not in scratchpad | Add to 11-investor-intelligence.md or remove |
+| 2 | {description} | [STALE] | Traffic drifted +12% | Note: normal monthly shift, low risk |
+| 3 | {description} | [MISS] | investor_quote_3 not in deck | Add to slide N+2 or remove from report |
+
+---
+
+## Dimension 1: Cross-File Consistency
+
+{Per data-point table from claim registry showing values across all files, with status}
+
+## Dimension 2: Math & Logic
+
+### ROI Recalculation
+| Component | Reported | Recalculated | Match? |
+|-----------|----------|-------------|--------|
+| Total Revenue | ${X} | — | (input) |
+| Digital Share | {X}% | — | (input) |
+| Search Share | 15% | — | (benchmark) |
+| Revenue Addressable | ${X} | ${calc} | {yes/no} |
+| Conservative (5%) | ${X} | ${calc} | {yes/no} |
+| Moderate (10%) | ${X} | ${calc} | {yes/no} |
+
+### Scoring Arithmetic
+| Check | Expected | Actual | Match? |
+|-------|----------|--------|--------|
+| HIGH count | {n} | {n} | {yes/no} |
+| MEDIUM count | {n} | {n} | {yes/no} |
+| LOW count | {n} | {n} | {yes/no} |
+| Total areas | 10 | {n} | {yes/no} |
+| Overall score | {x}/10 | {recalc} | {yes/no} |
+
+### Percentage Sums
+| Category | Sum | Expected | Within tolerance? |
+|----------|-----|----------|-------------------|
+| Traffic sources | {x}% | ~100% | {yes/no} |
+| Age demographics | {x}% | ~100% | {yes/no} |
+| Gender split | {x}% | ~100% | {yes/no} |
+
+## Dimension 3: Reference Data
+
+### SAIM Stat Verification
+| Cited Stat | In SAIM? | SAIM Value | Match? | Status |
+|-----------|----------|-----------|--------|--------|
+| "{stat text}" | Yes/No | {value} | Exact/Close/Wrong | [PASS]/[FAIL] |
+
+### Algolia Approved Stats
+| Stat | Used Value | Approved Value | Match? |
+|------|-----------|---------------|--------|
+| Customer count | {value} | 17,000+ | {yes/no} |
+| Searches/year | {value} | 1.75T | {yes/no} |
+
+### Case Study Citations
+| Customer | Cited Metric | Reference Metric | Match? |
+|----------|-------------|-----------------|--------|
+| Lacoste | {value} | 37% search revenue increase | {yes/no} |
+
+## Dimension 4: API Data Accuracy
+*(Standard/Full tier only — shows current vs. audit values)*
+
+| Data Point | Audit Value | Current Value | Drift % | Status |
+|-----------|------------|---------------|---------|--------|
+| monthly_visits | {audit} | {current} | {x}% | [PASS]/[STALE] |
+| bounce_rate | {audit} | {current} | {x}% | [PASS]/[STALE] |
+
+## Dimension 5: Source Citation Integrity
+
+### Citation Coverage
+| File | Data Points | With Source URL | Coverage % |
+|------|------------|----------------|-----------|
+| 01-company-context.md | {n} | {n} | {x}% |
+| 02-tech-stack.md | {n} | {n} | {x}% |
+| ... | | | |
+| **Overall** | **{N}** | **{n}** | **{x}%** |
+
+### URL Verification Results
+*(Standard/Full tier only)*
+
+| URL | Status | Expected Content | Actual | Match? |
+|-----|--------|-----------------|--------|--------|
+| {url} | 200 OK / 404 / redirect | {what it should be} | {what it is} | {yes/no} |
+
+## Dimension 6: Investor Quote Verification
+
+### Quote Traceability Matrix
+| # | Quote (first 50 chars) | In Scratchpad? | In Report? | In Deck? | In Signal Brief? | Source URL? | Verified? | Status |
+|---|----------------------|---------------|-----------|---------|-----------------|-----------|-----------|--------|
+| 1 | "{quote start}..." | Yes/No | L{n} | Slide {n} | Yes/No | {url or "none"} | {tier-dependent} | [status] |
+
+## Dimension 7: Browser Observation Fidelity
+
+### Screenshot Coverage
+- Expected screenshots: {n} (20 test steps)
+- Found on disk: {n}
+- Coverage: {x}%
+
+### Observation Cross-Reference
+| Test Step | Scratchpad Observation | Report Claim | Match? | Status |
+|-----------|----------------------|-------------|--------|--------|
+| 2e: Typo "{query}" | {result from 09-browser-findings} | {claim from report} | {yes/no} | [status] |
+
+---
+
+## Files Verified
+
+### Deliverables
+| File | Status | Size |
+|------|--------|------|
+| {company}-search-audit.md | Found | {size} |
+| {company}-landing-page.html | Found | {size} |
+| ... | | |
+
+### Workspace
+| File | Status | Size |
+|------|--------|------|
+| 01-company-context.md | Found | {size} |
+| ... | | |
+
+---
+*Report generated by /algolia-audit-factcheck v1.0. Verification tier: {tier}.*
+```
+
+### Output 2: `{company}-correction-manifest.md`
+
+Machine-readable fix list for correcting deliverables.
+
+```markdown
+# {Company} — Correction Manifest
+*Generated by /algolia-audit-factcheck v1.0 on {date}*
+*Feed this file to the audit skill or use it as a manual fix checklist.*
+
+## Corrections Required: {N total}
+
+### DISCREPANCY FIXES (propagate single source of truth)
+| # | Data Point | Correct Value | Source of Truth | Files to Fix | Current Wrong Value |
+|---|-----------|---------------|-----------------|-------------|-------------------|
+| 1 | {data_point} | {correct} | {scratchpad file} (L{n}) | {file1 L{n}, file2 L{n}} | {wrong value} |
+
+### INCORRECT FIXES (replace wrong values)
+| # | Data Point | Wrong Value | Correct Value | Affected Files | How Verified |
+|---|-----------|------------|---------------|---------------|-------------|
+| 1 | {data_point} | {wrong} | {correct} | {files} | {verification method} |
+
+### MISSING DATA FIXES (add to deliverables)
+| # | Data Point | Value | Source | Missing From |
+|---|-----------|-------|--------|-------------|
+| 1 | {data_point} | {value} | {source file} (L{n}) | {deliverable} |
+
+### STALE DATA (consider refreshing)
+| # | Data Point | Audit Value | Current Value | Drift % | Source |
+|---|-----------|------------|---------------|---------|--------|
+| 1 | {data_point} | {old} | {new} | {drift}% | {API + date} |
+
+### SOURCE CITATION FIXES (add/fix URLs)
+| # | Claim | Current Source | Issue | Fix |
+|---|-------|---------------|-------|-----|
+| 1 | {claim text} | {current or "None"} | {issue} | {recommended fix} |
+
+### UNVERIFIABLE CLAIMS (flag or remove)
+| # | Claim | File | Issue | Recommendation |
+|---|-------|------|-------|---------------|
+| 1 | {claim text} | {file} (L{n}) | {issue} | {add to scratchpad / verify / remove} |
+```
+
+### Output 3: `{company}-skill-feedback.md`
+
+Methodology improvement analysis for the audit skill.
+
+```markdown
+# Skill Methodology Feedback — {Company} Audit
+*Generated by /algolia-audit-factcheck v1.0 on {date}*
+*Use this to improve ~/.claude/skills/algolia-search-audit/SKILL.md*
+
+## Patterns Detected: {count}
+
+## Pattern: {pattern name}
+**Frequency**: Found in {N} claims in this audit
+**Root Cause**: {why this keeps happening — traced to specific SKILL.md instruction or process gap}
+**SKILL.md Fix**: {specific change to the skill methodology — exact wording to add/change}
+**Affected Phase/Step**: Phase {N}, Step {M}
+**Evidence**: {specific examples from this audit}
+
+{Repeat for each pattern detected}
+
+---
+
+## Audit Health Summary
+- Overall confidence: {X}/10
+- Most common issue type: {DISC/FAIL/UNVF/MISS/STALE}
+- Highest-risk dimension: {dimension name + score}
+- Lowest-risk dimension: {dimension name + score}
+- Citation coverage: {X}%
+- Screenshot coverage: {X}%
+
+## Recommended SKILL.md Changes (Priority Order)
+1. {highest impact change — with exact instruction text to add}
+2. {second highest}
+3. {third}
+```
+
+---
+
+## Team Mode Architecture
+
+The fact-checker uses Claude Code's team mode to run verification dimensions in parallel.
+
+### Agent Topology
+
+```
+TEAM LEAD (Coordinator — this conversation)
+  │
+  │ Phase 1 (sequential)
+  ├─→ Agent 1: Claim Registry + Dims 1-3 (MUST complete first)
+  │
+  │ Phase 2 (parallel fan-out)
+  ├─→ Agent 2: API Data Accuracy (Dim 4)      ─┐
+  ├─→ Agent 3: Citations + Quotes (Dims 5-6)   ├─ all run in parallel
+  ├─→ Agent 4: Browser Fidelity (Dim 7)        ─┘
+  │
+  │ Phase 2b (after Agents 2-4 complete)
+  ├─→ Agent 5: Pattern Analysis (reads all dim results)
+  │
+  │ Phase 3 (team lead)
+  └─→ Score aggregation + 3 output files
+```
+
+### Spawning Instructions
+
+**Phase 1 — Sequential**:
+```
+Task tool:
+  subagent_type: general-purpose
+  name: "claim-registry-builder"
+  mode: bypassPermissions
+  prompt: [Phase 1 instructions above, with paths to all files]
+```
+Wait for Agent 1 to complete and return claim-registry.md + dim-1-2-3-results.md.
+
+**Phase 2 — Parallel**:
+Spawn Agents 2, 3, and 4 simultaneously in a single message with 3 Task tool calls:
+```
+Agent 2: subagent_type: general-purpose, name: "api-verifier"
+Agent 3: subagent_type: general-purpose, name: "citation-verifier"
+Agent 4: subagent_type: general-purpose, name: "browser-verifier"
+```
+Each agent receives: the claim registry path, the tier, and dimension-specific instructions.
+
+**Phase 2b — After Agents 2-4**:
+```
+Agent 5: subagent_type: general-purpose, name: "pattern-analyzer"
+```
+Receives paths to all dim result files.
+
+**Phase 3 — Team Lead**:
+Read all 5 dimension result files. Aggregate scores. Generate 3 output files.
+
+### Tier Impact on Agents
+
+| Agent | Quick | Standard | Full |
+|-------|-------|----------|------|
+| 1 (Registry + Dims 1-3) | Read all files, full analysis | Same | Same |
+| 2 (API Data) | Read-only cross-ref | + SimilarWeb + BuiltWith re-calls | + competitor APIs |
+| 3 (Citations + Quotes) | Read-only URL scan | + WebFetch 10-15 URLs + transcripts | + all URLs + all transcripts |
+| 4 (Browser) | Read-only scratchpad check | + screenshot file verification | + Chrome MCP re-tests |
+| 5 (Patterns) | Full analysis of dim results | Same | Same |
+
+---
+
+## Key Design Decisions
+
+1. **Scratchpad = ground truth for Quick tier** — deliverables are compared against raw collected data in workspace files
+2. **15% tolerance band for SimilarWeb data** — monthly estimates shift naturally; this is not an error
+3. **Cross-file consistency is highest ROI** — zero API calls, catches the most real issues
+4. **Quote verification = trace to scratchpad + WebFetch** — URL resolution alone is insufficient; must find actual quote text
+5. **Screenshots almost always UNVERIFIABLE** — session-bound Chrome MCP IDs can't be re-checked; report count as warning, don't penalize heavily
+6. **No brand-check overlap** — factcheck = factual accuracy only; brand compliance stays with `/algolia-brand-check`
+7. **Team mode is built-in from day 1** — parallel agents cut execution time ~60%
+8. **3 output files** — human report + machine-readable corrections + methodology feedback creates a full improvement loop
+9. **Correction manifest is atomic** — each row is one specific fix with correct value, source, and affected files
+10. **Skill feedback identifies patterns, not just issues** — root cause analysis enables SKILL.md methodology improvements
+
+## Feedback Loop
+
+```
+/algolia-search-audit  ──→  6 deliverables + workspace
+         │
+         ▼
+/algolia-audit-factcheck  ──→  3 files:
+         │                      ├── factcheck-report.md (human review)
+         │                      ├── correction-manifest.md (fix deliverables)
+         │                      └── skill-feedback.md (fix methodology)
+         │
+         ▼
+Fix deliverables (using manifest) + Fix SKILL.md (using feedback)
+         │
+         ▼
+Next audit is more accurate → factcheck scores improve over time
+```
+
+## Important Notes
+
+- **Always verify before claiming** — Read actual files. Never assume data from compaction summaries is correct.
+- **Never fabricate verification results** — If a data point can't be checked at the selected tier, mark it `[UNVF]`, not `[PASS]`.
+- **Quick tier is the default** — It catches the highest-impact issues (consistency, math, references) with zero external calls.
+- **Standard tier is recommended for final pre-share validation** — Adds API freshness checks and source URL verification.
+- **Full tier is for post-mortem analysis** — When accuracy is critical or debugging a known-bad audit.
+- **The correction manifest is the most actionable output** — It tells you exactly what to fix, where, and what the correct value is.
+- **The skill feedback file accumulates value over multiple audits** — Run fact-checks on 2-3 audits and patterns emerge that reveal systemic SKILL.md weaknesses.

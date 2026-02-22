@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node (if rendering tools are added later)
+node_modules/
+package-lock.json
+
+# Audit output (generated per-run, not committed)
+screenshots/
+*-search-audit.md
+*-landing-page.html
+*-search-audit-deck.md
+*-landing-page.md
+*-ae-precall-brief.md
+*-strategic-signal-brief.md
+*-factcheck-report.md
+*-correction-manifest.md
+*-skill-feedback.md
+scratchpad/
