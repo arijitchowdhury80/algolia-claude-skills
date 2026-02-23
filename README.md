@@ -288,10 +288,10 @@ The search audit automates a 5-phase process:
 2. **Browser Testing (20 steps)** — 12 core search tests + 8 Algolia value-prop tests (NLP, dynamic facets, popular searches, personalization, recommendations, merchandising rules, analytics visibility)
 3. **Analysis** — Severity scoring across 10 challenge areas (6 core + 4 Algolia value-prop)
 4. **Report** — Full markdown audit report with strategic intelligence, investor quotes, competitor landscape, and deep hiring analysis
-5. **Deliverables (6 files, all brand-validated, all source-cited)**:
+5. **Deliverables (6 files, all brand-validated, all source-hyperlinked)**:
    - Full audit report (markdown)
    - Landing page (HTML with tabbed dual-view)
-   - McKinsey Pyramid + Cold Open presentation deck (~30-33 slides)
+   - **Algolia-branded presentation deck** (~30-33 slides) — **v2.8: Every source citation is a clickable hyperlink** for instant verification. Full brand standards (Nebula Blue #003DFF, Space Gray #21243D, Algolia Purple #5468FF), speaker notes (60-90 sec/slide), Google Slides-ready layouts
    - Landing page content spec
    - AE Pre-Call Brief (internal, not for prospect)
    - Strategic Signal Brief (LLM-optimized 1-pager)

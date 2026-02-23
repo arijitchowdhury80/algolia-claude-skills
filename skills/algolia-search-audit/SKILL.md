@@ -185,13 +185,19 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
 
 > **Pattern per step**: Run MCP/API call → Write structured results to scratchpad file → Continue to next step. This prevents context overflow from ~35K tokens of raw Phase 1 data.
 >
-> **Source URL capture**: For every data point written to a scratchpad file, ALSO capture the source URL. Example:
+> **Source URL capture**: For every data point written to a scratchpad file, ALSO capture the source URL AND tag it as FACT, ESTIMATE, or OBSERVED:
 > ```
-> Revenue: $254.2B (FY2024)
+> Revenue: $254.2B (FY2024) [FACT]
 >   Source: https://finance.yahoo.com/quote/COST
-> Monthly visits: 187M
+> Employees: ~2,000 (estimated after 2025 layoffs) [ESTIMATE]
+>   Source: https://www.retaildive.com/... (article discusses layoffs but not exact headcount)
+> New items: "10,000+ New Items" [OBSERVED]
+>   Source: observed on homepage during browser audit
+> Monthly visits: 187M [FACT]
 >   Source: https://www.similarweb.com/website/costco.com/
 > ```
+>
+> **Tag rules**: An [ESTIMATE] must never be presented as a [FACT] in deliverables. An [OBSERVED] value from the browser must not be inflated (e.g., "10,000+" must never become "30,000+"). Deliverables must preserve these distinctions — use "estimated" or "approximately" qualifiers for [ESTIMATE] values.
 
 1. **Company Context** — Gather comprehensive company intelligence:
    - **Company overview** (WebSearch): What they do, industry, founding year, employee count, store/warehouse count, recent news
@@ -666,6 +672,26 @@ For each of the 10 challenge areas, assign severity:
 | **Recommendations & Merchandising** | HIGH: No recs + no banners. MEDIUM: Some. LOW: Relevant recs + active rules |
 | **Search Intelligence** | HIGH: No trending/popular/analytics signals. MEDIUM: 1-2 present. LOW: 3+ present |
 
+**Overall Score Calculation Formula**:
+
+Use a weighted average where HIGH-severity areas receive 2x weight, penalizing critical gaps:
+
+```
+For each of the 10 areas:
+  weight = 2.0 if severity == HIGH
+  weight = 1.0 if severity == MEDIUM
+  weight = 0.5 if severity == LOW
+
+overall_score = sum(score_i × weight_i) / sum(weight_i)
+```
+
+**Example**: Scores [8, 8, 4, 4, 9, 2, 2, 5, 2, 4] with severity [LOW, LOW, HIGH, MEDIUM, LOW, HIGH, HIGH, MEDIUM, HIGH, MEDIUM]:
+- Numerator: 8(0.5) + 8(0.5) + 4(2) + 4(1) + 9(0.5) + 2(2) + 2(2) + 5(1) + 2(2) + 4(1) = 45.5
+- Denominator: 0.5 + 0.5 + 2 + 1 + 0.5 + 2 + 2 + 1 + 2 + 1 = 12.5
+- Score: 45.5 / 12.5 = 3.64 → round to 3.6/10
+
+**Always show the formula, inputs, and calculation in `10-scoring-matrix.md`.** This makes the overall score reproducible and verifiable by the fact-check skill.
+
 ### Phase 4: Generate Report
 
 Create `{company-name}-search-audit.md` with the following structure:
@@ -730,6 +756,27 @@ Create `{company-name}-search-audit.md` with the following structure:
 ## How Algolia Can Help
 ## Next Steps
 ```
+
+### Pre-Deliverable Data Refresh (MANDATORY — Prevents Post-Compaction Hallucination)
+
+Before generating EACH deliverable file (Phase 4 and 5a through 5f), you MUST re-read the 5 critical scratchpad files to ensure exact data fidelity. This is NOT optional — context compaction corrupts numerical data in memory. The model will regenerate plausible-looking numbers that are internally consistent (e.g., traffic sources summing to 100%) but factually WRONG.
+
+**Refresh procedure (run before EACH deliverable)**:
+1. `Read 03-traffic-data.md` — Capture exact traffic source percentages, demographics (all 6 age brackets)
+2. `Read 04-competitors.md` — Capture exact competitor names, bounce rates, traffic volumes, search providers
+3. `Read 08-financial-profile.md` — Capture exact revenue, EBITDA, margin zone, ROI figures
+4. `Read 10-scoring-matrix.md` — Capture exact scores per area, severity distribution, overall score
+5. `Read 11-investor-intelligence.md` — Capture exact quotes with speaker names, titles, and source URLs
+
+**Spot-check verification after writing each deliverable**: After writing each file, grep for 3 values to confirm data fidelity:
+- Traffic: grep for the exact Paid Search % from scratchpad 03
+- Competitors: grep for the exact first-competitor bounce rate from scratchpad 04
+- Financials: grep for the exact revenue figure from scratchpad 08
+If ANY spot-check fails, re-read the scratchpad file and correct the deliverable before proceeding.
+
+**Data Table Freeze Rule**: For ANY table containing competitor data (names, traffic, bounce rates, search providers), traffic source breakdowns, demographic distributions, or financial figures — COPY the exact table from the corresponding scratchpad file. Do NOT regenerate tables from memory. Tabular data with parallel columns is especially vulnerable to column-scrambling (values assigned to wrong rows) during context compaction.
+
+**Why this exists**: In the TheRealReal audit (2026-02-23), the content spec was generated after context compaction and contained 12 data errors — traffic sources, demographics, and competitor bounce rates were all regenerated from lossy memory. Competitor bounce rates were scrambled (Fashionphile got 28.8% when it was actually 50.6%). The other 5 deliverables, generated earlier while scratchpad data was in active context, had ZERO errors.
 
 ### Phase 5: Generate Deliverables (Brand-Validated)
 
@@ -876,9 +923,14 @@ The audit produces SIX deliverables, all brand-validated:
 
 - [ ] All 12 core steps executed (2a-2l)
 - [ ] All 8 Algolia value-prop steps executed (2m-2t)
-- [ ] **HARD GATE**: `ls screenshots/ | wc -l` shows 10+ files. If fewer, STOP and re-capture.
-- [ ] **Zero-byte check**: No 0-byte files in screenshots/
-- [ ] Each entry in `09-browser-findings.md` includes verified disk path
+- [ ] **HARD GATE — BLOCKING**: Run `ls screenshots/ | wc -l`.
+  - If result < 10: **STOP THE AUDIT. Do NOT proceed to Phase 3.**
+  - Print: "⛔ SCREENSHOT GATE FAILED: Only {N} screenshots on disk. Required: 10+."
+  - Re-attempt screenshot capture for any missing files.
+  - Re-run the count. If STILL < 10, ask the user for guidance before proceeding.
+  - This gate exists because Chrome MCP imageIds are SESSION-BOUND and become USELESS after session ends. If screenshots are not on disk NOW, they will NEVER be on disk.
+- [ ] **Zero-byte check**: `find screenshots/ -empty | wc -l` must return 0. Delete and re-capture any empty files.
+- [ ] **Disk path verification**: Each entry in `09-browser-findings.md` must include `Screenshot: screenshots/{nn}-{slug}.png (VERIFIED ON DISK)`. Entries with Chrome MCP imageIds like `ss_XXXXXXX` instead of file paths indicate persistence failure — fix immediately.
 
 ### Gate 3: After Phase 3 — Verify before writing report
 
@@ -927,6 +979,9 @@ echo "Zero-byte files:" && find screenshots/ -empty | wc -l
 - Every standalone insight in the signal brief must survive context dropping by downstream LLMs
 - Deck designed for Google Slides — Visual Notes describe layout, Speaker Notes provide 60-90 sec talking points
 - Never compress Phase 1 data into single lines — tech stack, traffic, and competitor landscape deserve full sections with tables
+- **Post-compaction data integrity**: After any context compaction mid-audit, treat ALL numerical data in memory as UNVERIFIED. Always re-read scratchpad files before using any data point. The most dangerous hallucination pattern is plausible regeneration — where the model creates internally consistent but factually wrong numbers (e.g., traffic sources that sum to 100% but with wrong individual values).
+- **Competitor table scrambling**: LLMs are especially bad at preserving column-row associations in competitor tables after context compaction. The model remembers "4 competitors had bounce rates in the 28-51% range" but assigns values to the wrong company names. ALWAYS copy competitor tables from scratchpad 04, never regenerate.
+- **Browser observations are exact**: When the browser shows "10,000+ New Items", record exactly "10,000+" — do not round up, generalize, or inflate to "30,000+". [OBSERVED] values are verbatim.
 
 ## MCP Server Integration (Required Tools)
 
@@ -1017,12 +1072,14 @@ All tools used automatically — no user prompting needed. If any tool is unavai
 
 After completing Phase 3 (Analyze & Score):
 1. **Refine Step 14**: Re-read `10-scoring-matrix.md` and update ICP-to-Priority Mapping with audit findings mapped to investor quotes.
-2. **Phase 4**: Write report. Hyperlink every data point.
-3. **Phase 5a**: Write landing page HTML with evidence cards, screenshots, source badges.
-4. **Phase 5b**: Write deck (~30-33 slides). Read ALL scratchpad files first. Each file = at least one slide. Title slide with company photo + logo + status badge. Source footnotes + appendix.
-5. **Phase 5c**: Write content spec.
+2. **Phase 4**: Write report. Hyperlink every data point. (Run Pre-Deliverable Data Refresh before writing.)
+3. **Phase 5c**: Write content spec IMMEDIATELY after report — both share the same data tables and the scratchpad data is still in active context. (Run Pre-Deliverable Data Refresh before writing.)
+4. **Phase 5a**: Write landing page HTML with evidence cards, screenshots, source badges. (Run Pre-Deliverable Data Refresh before writing.)
+5. **Phase 5b**: Write deck (~30-33 slides). Read ALL scratchpad files first. Each file = at least one slide. Title slide with company photo + logo + status badge. Source footnotes + appendix. (Run Pre-Deliverable Data Refresh before writing.)
 6. **Phase 5d**: Run `/algolia-brand-check` — auto-fix below 8/10.
-7. **Phase 5e**: Write AE brief with "Speaking Their Language" section.
-8. **Phase 5f**: Write signal brief with all standalone insights and source URLs.
+7. **Phase 5e**: Write AE brief with "Speaking Their Language" section. (Run Pre-Deliverable Data Refresh before writing.)
+8. **Phase 5f**: Write signal brief with all standalone insights and source URLs. (Run Pre-Deliverable Data Refresh before writing.)
 
-All files written to same working directory. Every deliverable uses the same data, findings, screenshots, and SAIM stats.
+**Ordering rationale**: The content spec (5c) MUST be generated right after the report (Phase 4) while scratchpad data is still in the active context window. Generating it last — after deck, HTML, and briefs — risks context compaction corrupting numerical data. The TheRealReal audit proved this: the content spec was the last file generated and contained 12 data errors while all other files had zero.
+
+All files written to same working directory. Every deliverable uses the same data, findings, screenshots, and SAIM stats. The Pre-Deliverable Data Refresh MUST run before each file regardless of order.
