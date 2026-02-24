@@ -1157,8 +1157,9 @@ Open `{company}-book.html` and replace every `{{PLACEHOLDER}}` with real data fr
 | All Pages | `.page-header`, `.page-footer` | n/a | `{{COMPANY_LOGO_URL}}`, `{{COMPANY_NAME}}`, `{{PAGE_NUM}}` |
 | **ACT I: THE VERDICT** | | | |
 | Ch 1: Bottom Line | `#ch-bottom-line` (KPI dashboard) | All files | `{{OVERALL_SCORE}}`, `{{CRITICAL_GAP_LABEL}}`, `{{REVENUE_RISK}}`, `{{THE_ASK_LABEL}}` + descriptions |
-| Ch 2: Opportunity | `#ch-opportunity` (revenue funnel) | `08-financial-profile.md` | `{{TOTAL_DIGITAL_REVENUE}}`, `{{SEARCH_ADDRESSABLE}}`, `{{CONSERVATIVE_LIFT_PCT}}`, `{{BENCHMARK_PROOF}}` |
-| Ch 3: The Ask | `#ch-the-ask` (timeline + financial card) | `08-financial-profile.md` | `{{TIMELINE_STEPS}}` (HTML), `{{FINANCIAL_CARD_ROWS}}` (HTML) |
+| Ch 2: Company Snapshot | `#ch-snapshot` (at-a-glance) | `01-company-context.md`, `08-financial-profile.md` | `{{REVENUE}}`, `{{EMPLOYEES}}`, `{{FOUNDED}}`, `{{INDUSTRY}}`, `{{KEY_SIGNAL}}` (e.g. Listrak partnership) |
+| Ch 3: Opportunity | `#ch-opportunity` (revenue funnel) | `08-financial-profile.md` | `{{TOTAL_DIGITAL_REVENUE}}`, `{{SEARCH_ADDRESSABLE}}`, `{{CONSERVATIVE_LIFT_PCT}}`, `{{BENCHMARK_PROOF}}` |
+| Ch 4: The Ask | `#ch-the-ask` (timeline + Pilot Success Metrics) | `08-financial-profile.md` | `{{PILOT_TIMELINE_STEPS}}`, `{{PILOT_SUCCESS_METRICS}}` (see below) |
 | **ACT II: THE PROOF** | | | |
 | Ch 4: Scorecard | `#ch-scorecard` (dual panel) | `10-scoring-matrix.md` | `{{PANEL_POSITIVE_ITEMS}}`, `{{PANEL_CRITICAL_ITEMS}}` |
 | Ch 5–11: Findings | `{{FINDINGS_SECTIONS}}` (variable count) | `09-browser-findings.md` | Generate one `.finding` block per gap — see template comment for HTML structure |
@@ -1533,37 +1534,55 @@ echo "========================================"
 
 The PDF book must match NotebookLM-quality visuals. The `components.css` library includes 35 component types. This section documents the 7 visual standards that must be applied to every audit.
 
-### 1. Score Gauge with Visual Weight
+### 1. Score Meter (Speedometer Style)
 
-The overall score (e.g., 4.2/10) MUST be displayed as a **radial arc gauge** with color gradient, not just a number.
+The overall score (e.g., 4.0/10) MUST be displayed as a **speedometer-style meter** with red/yellow/green zones and a rotating needle.
 
-**Component**: `.score-gauge`
+**Component**: `.score-meter`
 
-**Implementation**:
+**Implementation** (CRITICAL — use this exact SVG):
 ```html
-<div class="score-gauge">
-  <svg class="score-gauge__svg" viewBox="0 0 100 100">
-    <circle class="score-gauge__bg" cx="50" cy="50" r="45" />
-    <circle class="score-gauge__arc score-gauge__arc--critical" cx="50" cy="50" r="45"
-            stroke-dasharray="{{GAUGE_DASHARRAY}}" />
+<div class="score-meter" style="text-align: center;">
+  <svg viewBox="0 0 200 140" style="width: 280px; height: auto;">
+    <!-- Background arc zones -->
+    <path d="M 20 100 A 80 80 0 0 1 100 20" fill="none" stroke="#DC2626" stroke-width="16" stroke-linecap="round"/>
+    <path d="M 100 20 A 80 80 0 0 1 140 34" fill="none" stroke="#F59E0B" stroke-width="16"/>
+    <path d="M 140 34 A 80 80 0 0 1 180 100" fill="none" stroke="#10B981" stroke-width="16" stroke-linecap="round"/>
+
+    <!-- Needle — ROTATION FORMULA: -90 + (180 × score/10) -->
+    <g transform="rotate({{NEEDLE_ROTATION}} 100 100)">
+      <line x1="100" y1="100" x2="100" y2="30" stroke="#21243D" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="100" cy="100" r="8" fill="#21243D"/>
+    </g>
+
+    <!-- Score value -->
+    <text x="100" y="88" text-anchor="middle" font-size="32" font-weight="900" fill="#DC2626">{{SCORE}}</text>
+    <text x="100" y="108" text-anchor="middle" font-size="12" font-weight="600" fill="#6B7280">out of 10</text>
+
+    <!-- Zone labels -->
+    <text x="35" y="125" font-size="10" fill="#DC2626" font-weight="600">Critical</text>
+    <text x="90" y="135" font-size="10" fill="#F59E0B" font-weight="600">Needs Work</text>
+    <text x="155" y="125" font-size="10" fill="#10B981" font-weight="600">Good</text>
   </svg>
-  <div class="score-gauge__center">
-    <div class="score-gauge__value score-gauge__value--critical">4.2</div>
-    <div class="score-gauge__label">Search Score</div>
-    <div class="score-gauge__verdict">Needs Improvement</div>
-  </div>
 </div>
 ```
 
-**Calculation**:
-- Circumference = 2 × π × 45 = 283
-- `stroke-dasharray` = `(score/10 × 283) (283 - that value)`
-- Example: 4.2/10 → `"119 164"`
+**Needle Rotation Calculation** (CRITICAL):
+```
+rotation = -90 + (180 × score / 10)
 
-**Color classes**:
-- `.score-gauge__arc--critical` (≤4): Red gradient
-- `.score-gauge__arc--warning` (5-6): Amber gradient
-- `.score-gauge__arc--good` (≥7): Green gradient
+Examples:
+- Score 0.0 → rotate(-90)  = points LEFT (red zone)
+- Score 4.0 → rotate(-18)  = points to red/yellow border
+- Score 5.0 → rotate(0)    = points UP (center)
+- Score 7.0 → rotate(36)   = points to yellow/green border
+- Score 10.0 → rotate(90)  = points RIGHT (green zone)
+```
+
+**Color by score**:
+- Score ≤4: `fill="#DC2626"` (red text)
+- Score 5-6: `fill="#F59E0B"` (amber text)
+- Score ≥7: `fill="#10B981"` (green text)
 
 ### 2. Severity Heatmap Table
 
@@ -1602,6 +1621,54 @@ The revenue waterfall MUST be a proper **tapered SVG funnel**, not CSS rectangle
 ```
 
 **CSS trapezoid approach** (fallback): Uses `clip-path: polygon()` for tapered tiers.
+
+### 3a. Cover Page Logo Positioning (CRITICAL)
+
+The cover page MUST have both logos positioned correctly:
+- **Algolia logo**: Bottom-left corner (absolute positioning)
+- **Company logo**: Top-right corner (absolute positioning)
+
+```css
+.cover-page__logo--algolia {
+  position: absolute;
+  bottom: 40px;
+  left: 40px;
+  height: 32px;
+  z-index: 10;
+}
+
+.cover-page__logo--company {
+  position: absolute;
+  top: 40px;
+  right: 40px;
+  height: 40px;
+  max-width: 180px;
+  z-index: 10;
+}
+```
+
+**Anti-pattern**: Do NOT place both logos in a flex row or rely on CSS classes without explicit absolute positioning. Logos can disappear behind background images if z-index is not set.
+
+### 3b. Pilot Success Metrics (The Ask Page)
+
+Ch 4 (The Ask) MUST include a "Pilot Success Metrics" table showing KPIs, not just a timeline. This shows what success looks like.
+
+**Required KPIs**:
+| Metric | Target |
+|--------|--------|
+| Search Conversion Rate | +10-15% |
+| Zero-Results Rate | Reduce by 30-50% |
+| Time-to-First-Click | Reduce by 20% |
+| NLP Query Success | Measure "gift for mom" type queries |
+| Federated Content | Help/policy content findable |
+
+**Layout**: Two-column on The Ask page:
+- **Left**: Pilot timeline (4-6 week steps: catalog indexing, InstantSearch, test queries, A/B test)
+- **Right**: Pilot Success Metrics table with specific improvement targets
+
+**Callout boxes at bottom**:
+1. D2C/vertical expertise callout (Huckberry, Gymshark, Big W references)
+2. Expected ROI callout ($X.XM/year with payback period)
 
 ### 4. Real Data Charts
 
