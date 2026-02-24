@@ -9,9 +9,9 @@ Run a full search experience audit on a prospect's e-commerce or content website
 
 ## Universal Mandate — Screenshots & Source Citations
 
-These rules apply to ALL phases and ALL 6 deliverables, with NO exceptions.
+These rules apply to ALL phases and ALL 3 deliverables (PDF book, AE brief, signal brief), with NO exceptions.
 
-**Screenshots**: Every finding MUST reference the actual screenshot file from `screenshots/`. Report = file path reference. Landing page = `<img>` tag. Deck = markdown image embed `![](screenshots/...)`. Chrome MCP screenshot imageIds are session-bound and USELESS after session ends — files MUST exist on disk. Without screenshots, findings are unverifiable claims.
+**Screenshots**: Every finding MUST reference the actual screenshot file from `screenshots/`. In the PDF book, screenshots are embedded via `<img src="screenshots/...">` tags. Chrome MCP screenshot imageIds are session-bound and USELESS after session ends — files MUST exist on disk. Without screenshots, findings are unverifiable claims.
 
 **Source Citations**: Every data point MUST have a clickable hyperlink to its source:
 - Financial figures → Yahoo Finance or SEC EDGAR URL
@@ -24,11 +24,8 @@ These rules apply to ALL phases and ALL 6 deliverables, with NO exceptions.
 - Case studies → Algolia customer page URL
 
 **Citation format by deliverable**:
-- **Report** (`search-audit.md`): Inline markdown hyperlinks `[Source](URL)`
-- **Landing page** (`landing-page.html`): Source badges `<a href="URL">` per section + full bibliography
-- **Deck** (`search-audit-deck.md`): Footnotes `[[N] Source](URL)` per slide + Appendix A1 bibliography
-- **Content spec** (`landing-page.md`): Inline references
-- **AE brief** (`ae-precall-brief.md`): Inline hyperlinks on every data point
+- **PDF Book** (`search-audit-book.pdf`): Inline `<a class="cite">[N]</a>` numbered references + `<span class="source-tag">` visual badges per section + full bibliography in Appendix F
+- **AE brief** (`ae-precall-brief.md`): Inline markdown hyperlinks `[Source](URL)` on every data point
 - **Signal brief** (`strategic-signal-brief.md`): `SOURCE: {url}` on every line
 
 **A deliverable without sources is INCOMPLETE. A finding without a screenshot is UNVERIFIABLE. Neither is acceptable.**
@@ -62,12 +59,10 @@ By default (no `--phase` flag), the full audit runs end-to-end. Use `--phase` to
 | `--phase queries` | Generate vertical-calibrated test queries | Steps 5, 11 | `05-test-queries.md` | Reads `01-company-context.md` for vertical |
 | `--phase research` | **ALL of Phase 1** (steps 1-14) — no browser testing | Steps 1-14 | All scratchpad files (01-12) | All research tools |
 | `--phase searchaudit` | **Browser-based search testing + scoring** (Phase 2 + 3) | Steps 2a-2t, Phase 3 | `09-browser-findings.md`, `10-scoring-matrix.md`, `screenshots/` | Chrome MCP |
-| `--phase deliverables` | **Generate all 6 output files** from existing scratchpad data | Phases 4-5 | All 6 deliverables | Reads scratchpad files |
-| `--phase report` | Generate only the audit report | Phase 4 | `{company}-search-audit.md` | Reads scratchpad files |
-| `--phase deck` | Generate only the presentation deck | Phase 5b | `{company}-search-audit-deck.md` | Reads scratchpad files |
-| `--phase landingpage` | Generate only the landing page HTML | Phase 5a | `{company}-landing-page.html` | Reads scratchpad files |
-| `--phase aebrief` | Generate only the AE pre-call brief | Phase 5e | `{company}-ae-precall-brief.md` | Reads scratchpad files |
-| *(no flag)* | **Full audit** — all phases end-to-end | Everything | All scratchpad + all 6 deliverables + screenshots | All tools |
+| `--phase deliverables` | **Generate all 3 output files** (PDF book + AE brief + signal brief) from existing scratchpad data | Phases 4-5 | PDF book + AE brief + signal brief | Reads scratchpad files, Chrome headless for PDF |
+| `--phase book` | Generate only the PDF book | Phase 5a | `{company}-search-audit-book.pdf` | Reads scratchpad files, Chrome headless |
+| `--phase aebrief` | Generate only the AE pre-call brief | Phase 5b | `{company}-ae-precall-brief.md` | Reads scratchpad files |
+| *(no flag)* | **Full audit** — all phases end-to-end | Everything | All scratchpad + PDF book + AE brief + signal brief + screenshots | All tools |
 
 **Combining phases**: Use comma-separated values: `/algolia-search-audit costco.com --phase financials,hiring,intel`
 
@@ -76,6 +71,7 @@ By default (no `--phase` flag), the full audit runs end-to-end. Use `--phase` to
 - **Research only (no browser)**: `--phase research`
 - **Browser testing only (already have research)**: `--phase searchaudit`
 - **Regenerate deliverables (data already collected)**: `--phase deliverables`
+- **Regenerate just the book PDF**: `--phase book`
 - **Deep intel package**: `--phase financials,intel,hiring,strategic`
 
 ### Argument Parsing Rules
@@ -103,16 +99,19 @@ intel ────────────┘
               scoring (part of searchaudit)
                    ↓
             deliverables (needs scratchpad files + screenshots)
-               ├── report
-               ├── deck
-               ├── landingpage
+               ├── book (HTML template → Chrome headless PDF)
                ├── aebrief
                └── signalbrief
 ```
 
 ## Execution Mode: Agent Teams
 
-When running the full audit (no `--phase` flag) or `--phase research`, use agent teams for parallel execution. The orchestrator spawns specialized agents per wave. This requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in settings.
+When running the full audit (no `--phase` flag) or `--phase research`, use agent teams for parallel execution. The orchestrator spawns specialized agents per wave.
+
+**Prerequisites**:
+- Install `claude-sneakpeek` to unlock Agent Teams tools (TeammateTool, SendMessage, spawnTeam): `npx @realmikekelly/claude-sneakpeek quick --name claudesp`
+- Run audits via `claudesp` (not `claude` or VS Code extension)
+- Teammates inherit the lead's permissions at spawn time
 
 ### Wave 1 — Independent Research (parallel, no dependencies)
 
@@ -181,6 +180,43 @@ Before starting, create the scratchpad workspace:
 ```
 Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update each to `[x] done` as completed. This enables resume if context resets.
 
+**CRITICAL: Book Chapter Checklist** — Also add this checklist to `_workspace-manifest.md`. Each chapter MUST be marked done during Phase 5a book assembly:
+```markdown
+## Book Chapter Completion (Phase 5a)
+### Act I: The Verdict
+[ ] Ch 1: Bottom Line (KPI dashboard + score meter)
+[ ] Ch 2: Company Snapshot (at-a-glance profile + key strategic signal)
+[ ] Ch 3: Opportunity (revenue funnel)
+[ ] Ch 4: The Ask (timeline + financial card)
+
+### Act II: The Proof
+[ ] Ch 5: Scorecard (dual panel)
+[ ] Ch 6-12: Findings (one per major gap, 5-8 total)
+[ ] Ch 13: In Their Words (strategy vs execution)
+
+### Act III: Why Now
+[ ] Ch 14: Tech Stack (stack diagram)
+[ ] Ch 15: AI Gap (balance scale)
+[ ] Ch 16: Competitors (table + donut chart)
+[ ] Ch 17: Hiring (bar chart + callout)
+[ ] Ch 18: Leadership (quotes)
+
+### Act IV: The Path
+[ ] Ch 19: Architecture (flow diagram)
+[ ] Ch 20: Buying Committee (exec cards)
+[ ] Ch 21: Pilot Roadmap (timeline + financial)
+[ ] Ch 22: Next Steps (closing CTA)
+
+### Appendices
+[ ] Appendix A: Scoring Matrix
+[ ] Appendix B: Tech Stack Detail
+[ ] Appendix C: Traffic & Demographics
+[ ] Appendix D: Financial Profile
+[ ] Appendix E: Test Queries
+[ ] Appendix F: Bibliography
+```
+**WHY**: Context compaction during book assembly causes chapters to be skipped. This checklist enables verification and resume.
+
 ### Phase 1: Pre-Audit Research (14 steps — no browser needed except Step 13)
 
 > **Pattern per step**: Run MCP/API call → Write structured results to scratchpad file → Continue to next step. This prevents context overflow from ~35K tokens of raw Phase 1 data.
@@ -236,7 +272,9 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
    - Fallback: If BuiltWith credits exhausted, use SimilarWeb `get-website-content-technologies-agg`
    - → Write to `02-tech-stack.md`
 
-3. **Traffic & Engagement Deep Dive** — Use SimilarWeb MCP with ALL of these endpoints:
+3. **Traffic & Engagement Deep Dive** — Use **SimilarWeb MCP ONLY** for all traffic metrics. **DO NOT scrape or WebFetch third-party analytics sites** (Semrush, Ahrefs, SEMrush, Moz, etc.) for traffic/engagement data. These sites use different measurement methodologies than SimilarWeb, and mixing sources creates unverifiable discrepancies. All traffic, engagement, demographics, and ranking data MUST come from SimilarWeb MCP endpoints so the fact-checker can reproduce exact results with identical API calls.
+
+   Use SimilarWeb MCP with ALL of these endpoints:
    - `get-websites-traffic-and-engagement` — monthly visits, bounce rate, pages per visit, avg visit duration
    - `get-websites-traffic-sources` — channel breakdown (organic, direct, paid, social, referral, mail)
    - `get-websites-geography-agg` — top countries by traffic share
@@ -249,6 +287,7 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
    - `get-pages-leading-folders-agg` — top URL folders (reveals site architecture: /search/, /product/, /category/)
    - `get-websites-landing-pages-agg` with `traffic_source: "organic"` — top organic landing pages (SEO focus)
    - Use `country: "ww"` if `"us"` errors
+   - **web_source STANDARDIZATION (MANDATORY)**: ALL SimilarWeb API calls for a single audit MUST use `web_source: "total"` (desktop + mobile). If "total" errors, fall back to "desktop" but record the fallback and add "(desktop only)" caveat to ALL traffic metrics. NEVER mix desktop and total values in the same scratchpad file. Record the parameter at the top of `03-traffic-data.md`: `WEB_SOURCE: total`
    - → Write to `03-traffic-data.md`
 
 4. **Competitor Identification** — Use SimilarWeb to find top 3-5 competitors:
@@ -470,6 +509,61 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
 
 > **Scratchpad**: Append all observations to `09-browser-findings.md` after each step.
 
+#### Phase 2 Pre-Flight Checklist (MANDATORY)
+
+Before starting any browser tests, verify these prerequisites:
+
+**1. Chrome MCP Configuration Check**
+```bash
+grep -A3 '"chrome"' ~/.claude/mcp_settings.json
+```
+Expected output:
+```json
+"chrome": {
+  "command": "npx",
+  "args": ["-y", "chrome-devtools-mcp"]
+}
+```
+If Chrome MCP is NOT configured:
+- Add the above block to `~/.claude/mcp_settings.json`
+- Inform the user they must restart Claude Code for MCP changes to take effect
+- **STOP** — do not proceed with browser testing until Chrome MCP is available
+
+**2. Launch Chrome with Remote Debugging**
+If Chrome MCP connection fails OR if WAF blocks the browser, instruct the user to run:
+```bash
+# Kill any existing Chrome instances first
+pkill -f "Google Chrome" || true
+
+# Launch Chrome with remote debugging enabled
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir="/tmp/chrome-debug-profile" &
+```
+Wait 3 seconds for Chrome to start, then verify:
+```bash
+curl -s http://127.0.0.1:9222/json/version | head -1
+```
+Expected: JSON response with Chrome version info.
+
+**3. Puppeteer-Core Fallback Setup**
+If Chrome MCP is unavailable or unreliable, use puppeteer-core to connect to the running Chrome:
+```bash
+cd {company}-audit-workspace && npm install puppeteer-core
+```
+Then use this connection pattern in browser scripts:
+```javascript
+const puppeteer = require('puppeteer-core');
+const browser = await puppeteer.connect({
+  browserURL: 'http://127.0.0.1:9222',
+  defaultViewport: { width: 1920, height: 1080 }
+});
+const pages = await browser.pages();
+const page = pages[0] || await browser.newPage();
+// Use page.goto(), page.type(), page.screenshot() etc.
+```
+**Critical**: Connect to EXISTING Chrome — do NOT use `puppeteer.launch()` which creates a new headless instance that triggers WAF.
+
 #### Browser Audit Resilience — Anti-Detection Best Practices
 
 1. **Use Chrome MCP** (real Chrome browser with user profile) — NOT headless Puppeteer for audit testing
@@ -489,6 +583,60 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
 8. Never use Puppeteer MCP for actual audit testing — it triggers bot detection
 9. Puppeteer MCP is acceptable ONLY for screenshot persistence (fallback method)
 10. Cookie consent: Decline cookies when prompted (privacy-preserving)
+
+#### WAF Detection & Recovery Protocol
+
+Many e-commerce sites use Akamai, Cloudflare, or Imperva WAF that block automated browsers. Detection signals:
+- Page title contains "Access Denied", "Just a moment", "Checking your browser"
+- Page body shows CAPTCHA, "ray ID", or challenge interstitial
+- Screenshot file size is suspiciously small (<50KB = likely error page, not real content)
+- HTTP 403/429 responses
+
+**Recovery Steps (escalating)**:
+1. **Retry with delay**: Wait 10 seconds, retry navigation
+2. **Homepage-first approach**: Navigate to homepage, wait 5 seconds, THEN navigate to search
+3. **Switch to real Chrome**: Kill any headless processes, use Chrome with remote debugging (see Pre-Flight step 2)
+4. **User intervention**: If still blocked after 3 attempts, ask user to:
+   - Manually navigate to the site in the Chrome window
+   - Complete any CAPTCHA/challenge
+   - Confirm when ready, then continue automation from that point
+5. **Document limitation**: If site remains blocked, note in findings: "WAF blocked automated testing — limited screenshots available"
+
+#### Search Input Selector Resilience
+
+E-commerce sites use various selectors for search inputs. Try these in order until one works (5-second timeout each):
+
+```javascript
+const SEARCH_SELECTORS = [
+  '#SearchInput',                        // Common SFCC
+  'input[type="search"]',                // Semantic HTML5
+  'input[name="q"]',                     // Google-style
+  'input[name="search"]',                // Generic
+  'input[placeholder*="Search" i]',      // Placeholder-based (case-insensitive)
+  'input[placeholder*="search" i]',      // Lowercase variant
+  '[data-testid="search-input"]',        // React test ID
+  '[data-testid*="search" i]',           // Partial test ID
+  '.search-input',                       // Class-based
+  '.searchInput',                        // CamelCase class
+  '#search-input',                       // ID-based
+  'input[aria-label*="Search" i]',       // Accessibility
+  'header input[type="text"]',           // Header text input fallback
+];
+
+async function findSearchInput(page) {
+  for (const selector of SEARCH_SELECTORS) {
+    try {
+      await page.waitForSelector(selector, { timeout: 5000 });
+      return selector;
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+  throw new Error('No search input found with any known selector');
+}
+```
+
+If all selectors fail, take a screenshot of the page and manually inspect the DOM to identify the correct selector.
 
 Open the website in the browser and systematically test:
 
@@ -757,6 +905,40 @@ Create `{company-name}-search-audit.md` with the following structure:
 ## Next Steps
 ```
 
+### Case Study Verification Gate (MANDATORY — Prevents Metric Fabrication)
+
+Before citing ANY Algolia case study in any deliverable, you MUST:
+
+1. **WebFetch the exact URL** (e.g., `algolia.com/customers/{company}/`)
+2. **If 404**: Search `algolia.com/customers/` for the correct URL variant (e.g., `/decathlon-singapore/` not `/decathlon/`, `/gymshark-recommend/` not `/gymshark/`)
+3. **Extract the EXACT metric** from the live page — the specific number, what it measures (conversion rate vs revenue vs order rate vs CTR), and which Algolia product was used
+4. **Extract the EXACT timeframe** — only if explicitly stated on the page. If no timeframe is mentioned, do NOT add one.
+5. **Record in scratchpad** before propagating to deliverables:
+   ```
+   CASE STUDY: {Company}
+   URL: {verified live URL}
+   METRIC: {exact metric from page, e.g., "+37% conversion rate improvement"}
+   PRODUCT: {exact Algolia product name from page, e.g., "Algolia Recommend"}
+   TIMEFRAME: {from page, or "NOT STATED"}
+   CONTEXT: {any qualifying context, e.g., "new customers during Black Friday"}
+   ```
+
+**FORBIDDEN — these patterns caused 5 of 6 case study errors in the Oriental Trading audit (2026-02-24):**
+- Adding timeframes not on the page (e.g., "in 6 months", "in 12 months")
+- Changing metric types (e.g., "conversion rate" → "revenue", "order rate" → "CTR")
+- Changing product names (e.g., "Algolia Recommend" → "Algolia Personalization")
+- Using parent URLs when the case study lives at a variant (e.g., `/gymshark-recommend/` not `/gymshark/`)
+- Citing a specific percentage when the source says "double-digit" (fabricated precision)
+
+### Link Verification Gate (MANDATORY — Prevents Dead URL Propagation)
+
+Before finalizing any deliverable, extract ALL URLs and WebFetch each one. If 404/403:
+1. Search for the correct URL
+2. If found, replace with the correct URL
+3. If not found, remove the citation and mark claim as unverifiable
+
+**Why this exists**: In the Oriental Trading audit (2026-02-24), 4 dead URLs made it into the book: 2 Algolia case study pages that had moved, 1 Baymard page that was removed entirely, and 1 expired job listing from 2022.
+
 ### Pre-Deliverable Data Refresh (MANDATORY — Prevents Post-Compaction Hallucination)
 
 Before generating EACH deliverable file (Phase 4 and 5a through 5f), you MUST re-read the 5 critical scratchpad files to ensure exact data fidelity. This is NOT optional — context compaction corrupts numerical data in memory. The model will regenerate plausible-looking numbers that are internally consistent (e.g., traffic sources summing to 100%) but factually WRONG.
@@ -776,75 +958,266 @@ If ANY spot-check fails, re-read the scratchpad file and correct the deliverable
 
 **Data Table Freeze Rule**: For ANY table containing competitor data (names, traffic, bounce rates, search providers), traffic source breakdowns, demographic distributions, or financial figures — COPY the exact table from the corresponding scratchpad file. Do NOT regenerate tables from memory. Tabular data with parallel columns is especially vulnerable to column-scrambling (values assigned to wrong rows) during context compaction.
 
-**Why this exists**: In the TheRealReal audit (2026-02-23), the content spec was generated after context compaction and contained 12 data errors — traffic sources, demographics, and competitor bounce rates were all regenerated from lossy memory. Competitor bounce rates were scrambled (Fashionphile got 28.8% when it was actually 50.6%). The other 5 deliverables, generated earlier while scratchpad data was in active context, had ZERO errors.
+**Why this exists**: In the TheRealReal audit (2026-02-23), the content spec was generated after context compaction and contained 12 data errors — traffic sources, demographics, and competitor bounce rates were all regenerated from lossy memory. Competitor bounce rates were scrambled (Fashionphile got 28.8% when it was actually 50.6%). The other deliverables, generated earlier while scratchpad data was in active context, had ZERO errors.
 
 ### Phase 5: Generate Deliverables (Brand-Validated)
 
-#### 5a: Landing Page — Dual-View HTML
+Phase 5 produces THREE deliverables:
+1. **`{company}-search-audit-book.pdf`** — The primary deliverable. A beautiful, print-quality PDF book using the HTML template system.
+2. **`{company}-ae-precall-brief.md`** — AE-facing internal brief (NOT for prospect).
+3. **`{company}-strategic-signal-brief.md`** — 1-page brief for downstream LLM consumption.
 
-Read `/algolia-landing` skill before generating. Generate `{company-name}-landing-page.html` with Algolia branding (Sora font, Xenon Blue #003DFF, heading text #23263B, body text #5A5E9A, Algolia Purple #5468FF).
+The book REPLACES the old report, deck, landing page, and content spec. One beautiful artifact instead of six scattered files.
 
-**Tab 1: Executive Summary** (default active): Hero, metrics bar, findings summary cards, before/after, industry stats, strengths, solutions, customer proof, CTA.
+#### 5a: Assemble the Book (HTML → PDF)
 
-**Tab 2: Deep Dive**: Company context (traffic sources, tech stack pills), strategic context cards, competitor search landscape table, Algolia value-prop assessment, audit methodology, detailed gap analysis with ACTUAL SCREENSHOT IMAGES (`<img src="screenshots/{nn}.png">`), scoring table, opportunities, technical fit, next steps timeline.
+> **⚠️ CONTEXT COMPACTION WARNING**: Book assembly is the most context-intensive phase. The model's context fills with 12 scratchpad files (~35K tokens) and compaction causes chapters to be silently skipped. The sub-phase structure below with mandatory disk writes after each Act prevents this failure mode.
 
-**Screenshot requirement**: Every gap card MUST embed the actual screenshot with `onerror` fallback. Goal = ZERO missing images.
+The book uses a template system at `~/.claude/skills/algolia-search-audit/templates/`:
+- `book-template.html` — Master template with 21 chapters + 6 appendix sections, all using `{{PLACEHOLDER}}` variables
+- `components.css` — Visual component library (25 components: KPI dashboards, revenue funnels, finding spreads, competitor tables, SVG charts, executive cards, timelines, etc.)
 
-**Source requirement**: Every data section has source badge. Full Sources & Bibliography at bottom grouped by: Financial, Traffic, Technology, Industry, Competitors, Hiring, Investor, Case Studies.
+**Step 1: Copy template files to working directory**
+```bash
+cp ~/.claude/skills/algolia-search-audit/templates/book-template.html ./{company}-book.html
+cp ~/.claude/skills/algolia-search-audit/templates/components.css ./components.css
+```
 
-**Tab UI**: Sticky tabs, URL hash support (#executive, #deep-dive), shared hero/metrics/CTA/footer, responsive.
+**Step 2: Read ALL 12 scratchpad files** (Pre-Deliverable Data Refresh — MANDATORY)
+Read every scratchpad file (01 through 12) before populating any chapter. This prevents post-compaction hallucination.
 
-#### 5b: Presentation Deck (Markdown for Google Slides)
+**Step 3: Populate the HTML template IN SUB-PHASES** (CRITICAL — prevents chapter skipping)
 
-Read `/algolia-deck` skill before generating. Generate `{company-name}-search-audit-deck.md` using **McKinsey Pyramid + Hollywood Cold Open** structure (~30-33 slides).
+Book assembly MUST be done in 6 sub-phases with mandatory disk writes and verification after each. DO NOT attempt to populate the entire book at once.
 
-**Scratchpad Mining Rule**: Every scratchpad file (01-12) MUST produce at least one dedicated slide. Rich data tables, demographics, keyword analysis warrant 2-3 slides. Never compress intelligence into thin summaries. Each finding is a chapter.
+---
 
-**Deck Structure**:
+**Sub-Phase 5a-1: Cover + Act I (Chapters 1-4)**
 
-| # | Slide | Content | Scratchpad Source |
-|---|-------|---------|-------------------|
-| 1 | **Title** | Company store/HQ photo + dark gradient + logo + status badge | — |
-| 2 | **The Bottom Line** | 4 bullets: gaps costing $Y, executive quote, competitor angle, pilot impact | All files |
-| | **ACT 1: THE COMPANY** | | |
-| 3 | **Company snapshot** | Full financial table + enriched executive table with backgrounds | `01-company-context.md` |
-| 3a | **Digital traffic deep dive** | Complete traffic analysis, source breakdown, geographic concentration | `03-traffic-data.md` |
-| 3b | **Audience DNA** | Demographics, audience overlap, keyword intent patterns | `03-traffic-data.md` |
-| 4 | **Tech stack upheaval** | Two-column: REMOVED vs ADDED, "gap in the middle" | `02-tech-stack.md` |
-| 5 | **Competitive landscape** | BuiltWith-verified matrix, bounce rate comparisons, golden angle | `04-competitors.md` |
-| | **ACT 2: THE EVIDENCE** | | |
-| 6 | **Audit overview** | 10-area scoring matrix with color-coded severity | `10-scoring-matrix.md` |
-| 7–N | **Gap slides** (1 per gap) | Screenshot embed + test + result + SAIM stat + case study + strategic connection | `09-browser-findings.md` |
-| N+1 | **What's working well** | 3-4 strengths with ✅ checkmarks | `10-scoring-matrix.md` |
-| | **ACT 3: THE URGENCY** | | |
-| N+2 | **In their own words** | Executive quotes from earnings calls/10-K/10-Q → mapped to gaps. Show Speaker + Title. | `11-investor-intelligence.md` |
-| N+2a | **SEC risk factors** | Each risk factor mapped to specific audit finding | `11-investor-intelligence.md` |
-| N+3 | **Hiring & investment signals** | Role table, salary ranges, JD evidence, build-vs-buy table | `07-hiring-signals.md` |
-| N+4 | **Strategic intelligence** | Timing signals, trigger events, timing window | `06-strategic-context.md` |
-| | **ACT 4: THE RESOLUTION** | | |
-| N+5 | **Connecting the dots** | ICP mapping: "You said X → We found Y → Algolia does Z" | `12-icp-priority-mapping.md` |
-| N+6 | **Executive profiles** | Full profile tables per executive with frames | `01-company-context.md` |
-| N+7 | **The business case** | ROI with shown math, margin-zone framing | `08-financial-profile.md` |
-| N+8 | **Pilot strategy** | 30-day A/B pilot, KPIs, budget by margin zone | `08-financial-profile.md` |
-| N+9 | **Next steps + CTA** | Timeline, contact info | — |
-| | **APPENDIX** | | |
-| A1 | **Sources & Bibliography** | All URLs hyperlinked by category | All files |
-| A2 | **Full tech stack** | Complete BuiltWith analysis | `02-tech-stack.md` |
-| A3 | **Algolia value-prop assessment** | 7-row product mapping | `10-scoring-matrix.md` |
-| A4 | **Full test query matrix** | All queries with results and scores | `05-test-queries.md` |
-| A5 | **Full traffic source data** | Keywords, channels, audience overlap | `03-traffic-data.md` |
+Read scratchpad files: `01-company-context.md`, `03-traffic-data.md`, `08-financial-profile.md`, `10-scoring-matrix.md`
 
-**Slide Format**: Nebula Blue #003DFF backgrounds for title/dividers/CTA; White for content. Source Sans Pro throughout. Max 4 bullets per slide. Speaker notes (60-90 sec) with key point, strategic connection, transition hook. Source footnotes as `[[N] Source](URL)`.
+Populate:
+- [ ] Cover page (company name, logo, photo, headline)
+- [ ] Ch 1: Bottom Line (KPI dashboard with score meter)
+- [ ] Ch 2: Company Snapshot / At a Glance (REQUIRED — company profile metrics + key strategic signal callout)
+  - Left column: Homepage screenshot + key metrics (Founded, Revenue, Monthly Visits, Business Model, B Corp/certifications)
+  - Right column: 3-4 brand/value cards (ownership, business model differentiators, social impact)
+  - Bottom: Full-width gradient callout box with KEY STRATEGIC SIGNAL (most actionable insight from research)
+- [ ] Ch 3: Opportunity (revenue funnel)
+- [ ] Ch 4: The Ask (timeline + financial card)
 
-**Emotional Continuity**: Slide 2 = "wait, what?". Act 2 = mounting concern. Act 2→3 pivot = urgency. "In Their Own Words" = emotional climax. Act 4 = relief through resolution.
+**MANDATORY**: Save to disk immediately after completing Act I:
+```bash
+# Verify chapters exist
+grep -c 'id="ch-bottom-line"\|id="ch-snapshot"\|id="ch-opportunity"\|id="ch-the-ask"' {company}-book.html
+# Expected: 4
+```
 
-#### 5c: Landing Page Content Spec
-Generate `{company-name}-landing-page.md` — content specification with all copy, sections, CTAs, A/B test recommendations.
+Update manifest: Mark Act I chapters as `[x] done`
 
-#### 5d: Brand Compliance Validation
-Run `/algolia-brand-check` on landing page and deck. Auto-fix below 8/10.
+---
 
-#### 5e: AE Pre-Call Brief
+**Sub-Phase 5a-2: Act II (Chapters 5-13 — Findings)**
+
+Read scratchpad files: `09-browser-findings.md`, `10-scoring-matrix.md`, `11-investor-intelligence.md`
+
+Populate:
+- [ ] Ch 5: Scorecard (dual panel — what's working vs critical gaps)
+- [ ] Ch 6-12: Finding pages (one per major gap, 5-8 total) — EACH with:
+  - Hero screenshot (5 inches tall)
+  - Stat bar with industry benchmark
+  - Tested/Expected/Found columns
+  - Solution box with Algolia product
+- [ ] Ch 13: In Their Words (strategy vs execution pairs)
+
+**MANDATORY**: Save to disk immediately after completing Act II:
+```bash
+# Verify finding pages exist (should be 5-8 findings + scorecard + "in their words")
+grep -c 'class="chapter.*finding\|id="ch-scorecard"\|id="ch-their-words"' {company}-book.html
+# Expected: 7-10
+```
+
+Update manifest: Mark Act II chapters as `[x] done`
+
+---
+
+**Sub-Phase 5a-3: Act III (Chapters 14-18 — Why Now)**
+
+Read scratchpad files: `02-tech-stack.md`, `04-competitors.md`, `06-strategic-context.md`, `07-hiring-signals.md`, `11-investor-intelligence.md`
+
+Populate:
+- [ ] Ch 14: Tech Stack (stack diagram with removed/added)
+- [ ] Ch 15: AI Gap (balance scale — deployed vs absent)
+- [ ] Ch 16: Competitors (table + donut chart)
+- [ ] Ch 17: Hiring (bar chart + callout)
+- [ ] Ch 18: Leadership/Strategic Triggers (quotes or trigger cards)
+
+**MANDATORY**: Save to disk immediately after completing Act III:
+```bash
+# Verify chapters exist
+grep -c 'id="ch-tech-stack"\|id="ch-ai-gap"\|id="ch-competitors"\|id="ch-hiring"\|id="ch-leadership"\|id="ch-triggers"' {company}-book.html
+# Expected: 4-5
+```
+
+Update manifest: Mark Act III chapters as `[x] done`
+
+---
+
+**Sub-Phase 5a-4: Act IV (Chapters 19-22 — The Path)**
+
+Read scratchpad files: `01-company-context.md`, `08-financial-profile.md`, `12-icp-priority-mapping.md`
+
+Populate:
+- [ ] Ch 19: Architecture (flow diagram with Algolia)
+- [ ] Ch 20: Buying Committee (exec cards)
+- [ ] Ch 21: Pilot Roadmap (timeline + financial projection)
+- [ ] Ch 22: Next Steps (closing CTA)
+
+**MANDATORY**: Save to disk immediately after completing Act IV:
+```bash
+# Verify chapters exist
+grep -c 'id="ch-architecture"\|id="ch-buying-committee"\|id="ch-pilot"\|id="ch-next-steps"' {company}-book.html
+# Expected: 4
+```
+
+Update manifest: Mark Act IV chapters as `[x] done`
+
+---
+
+**Sub-Phase 5a-5: Appendices (A-F)**
+
+Read scratchpad files: ALL 12 files
+
+Populate:
+- [ ] Appendix A: Full 10-area scoring matrix
+- [ ] Appendix B: Complete tech stack from BuiltWith
+- [ ] Appendix C: Traffic & demographics from SimilarWeb
+- [ ] Appendix D: Financial profile with 3-year trends
+- [ ] Appendix E: All test queries with results
+- [ ] Appendix F: Full bibliography (grouped by source type)
+
+**MANDATORY**: Save to disk immediately after completing Appendices:
+```bash
+# Verify appendices exist
+grep -c 'id="appendix-scoring"\|id="appendix-techstack"\|id="appendix-traffic"\|id="appendix-financials"\|id="appendix-queries"\|id="appendix-sources"\|id="appendix-bibliography"' {company}-book.html
+# Expected: 6
+```
+
+Update manifest: Mark all Appendix chapters as `[x] done`
+
+---
+
+**Sub-Phase 5a-6: Final Verification (BLOCKING GATE)**
+
+Before PDF generation, run these verification checks. ALL must pass:
+
+```bash
+# 1. Chapter count verification
+chapter_count=$(grep -c 'class="chapter"' {company}-book.html)
+echo "Chapter count: $chapter_count"
+if [ "$chapter_count" -lt 25 ]; then
+  echo "⛔ CHAPTER GATE FAILED: Only $chapter_count chapters. Required: 25+"
+  echo "Review manifest to identify missing chapters and re-run sub-phases."
+  exit 1
+fi
+
+# 2. Unpopulated placeholder check
+placeholder_count=$(grep -c '{{' {company}-book.html || echo 0)
+echo "Unpopulated placeholders: $placeholder_count"
+if [ "$placeholder_count" -gt 0 ]; then
+  echo "⛔ PLACEHOLDER GATE FAILED: $placeholder_count unpopulated variables remain"
+  grep '{{' {company}-book.html | head -10
+  exit 1
+fi
+
+# 3. Page number sequence verification
+echo "Page numbers in sequence:"
+grep -o 'page-footer__page">[0-9]*' {company}-book.html | sed 's/page-footer__page">//' | tr '\n' ' '
+echo ""
+
+# 4. Screenshot references
+screenshot_refs=$(grep -c 'src="screenshots/' {company}-book.html || echo 0)
+echo "Screenshot references: $screenshot_refs"
+if [ "$screenshot_refs" -lt 5 ]; then
+  echo "⚠️ WARNING: Only $screenshot_refs screenshot references. Expected: 5+"
+fi
+```
+
+**If any check fails**: Do NOT proceed to PDF generation. Fix the issue first.
+
+---
+
+Open `{company}-book.html` and replace every `{{PLACEHOLDER}}` with real data from scratchpad files.
+
+**Chapter-to-Scratchpad Mapping**:
+
+| Chapter | Template Section | Scratchpad Source | Key Placeholders |
+|---------|-----------------|-------------------|-----------------|
+| Cover | `.cover-page` | `01-company-context.md` | `{{COMPANY_NAME}}`, `{{COMPANY_LOGO_URL}}`, `{{COVER_PHOTO_URL}}`, `{{STATUS_HEADLINE}}`, `{{METRIC_1}}`, `{{METRIC_2}}` |
+| All Pages | `.page-header`, `.page-footer` | n/a | `{{COMPANY_LOGO_URL}}`, `{{COMPANY_NAME}}`, `{{PAGE_NUM}}` |
+| **ACT I: THE VERDICT** | | | |
+| Ch 1: Bottom Line | `#ch-bottom-line` (KPI dashboard) | All files | `{{OVERALL_SCORE}}`, `{{CRITICAL_GAP_LABEL}}`, `{{REVENUE_RISK}}`, `{{THE_ASK_LABEL}}` + descriptions |
+| Ch 2: Opportunity | `#ch-opportunity` (revenue funnel) | `08-financial-profile.md` | `{{TOTAL_DIGITAL_REVENUE}}`, `{{SEARCH_ADDRESSABLE}}`, `{{CONSERVATIVE_LIFT_PCT}}`, `{{BENCHMARK_PROOF}}` |
+| Ch 3: The Ask | `#ch-the-ask` (timeline + financial card) | `08-financial-profile.md` | `{{TIMELINE_STEPS}}` (HTML), `{{FINANCIAL_CARD_ROWS}}` (HTML) |
+| **ACT II: THE PROOF** | | | |
+| Ch 4: Scorecard | `#ch-scorecard` (dual panel) | `10-scoring-matrix.md` | `{{PANEL_POSITIVE_ITEMS}}`, `{{PANEL_CRITICAL_ITEMS}}` |
+| Ch 5–11: Findings | `{{FINDINGS_SECTIONS}}` (variable count) | `09-browser-findings.md` | Generate one `.finding` block per gap — see template comment for HTML structure |
+| Ch 12: In Their Words | `#ch-their-words` (strategy vs execution) | `11-investor-intelligence.md` + `09-browser-findings.md` | `{{STRATEGY_EXECUTION_PAIRS}}` — pair exec quotes with screenshot evidence |
+| **ACT III: WHY NOW** | | | |
+| Ch 13: Tech Stack | `#ch-tech-stack` (stack diagram) | `02-tech-stack.md` | `{{STACK_REMOVED_BLOCKS}}`, `{{VACUUM_LABEL}}`, `{{STACK_ADDED_BLOCKS}}` |
+| Ch 14: AI Gap | `#ch-ai-gap` (balance scale) | `02-tech-stack.md` + `10-scoring-matrix.md` | `{{AI_DEPLOYED_ITEMS}}`, `{{AI_ABSENT_ITEMS}}` |
+| Ch 15: Competitors | `#ch-competitors` (table + donut chart) | `04-competitors.md` | `{{COMPETITOR_TABLE_ROWS}}`, `{{DONUT_PCT}}`, SVG `stroke-dasharray` values |
+| Ch 16: Hiring | `#ch-hiring` (bar chart + callout) | `07-hiring-signals.md` | `{{HIRING_BAR_ROWS}}`, `{{HIRING_CALLOUT}}` |
+| Ch 17: Leadership | `#ch-leadership` | `11-investor-intelligence.md` | `{{LEADERSHIP_QUOTES}}` — callout--quote boxes with source citations |
+| **ACT IV: THE PATH** | | | |
+| Ch 18: Architecture | `#ch-architecture` (flow diagram) | `02-tech-stack.md` + `10-scoring-matrix.md` | `{{FLOW_BOXES}}`, `{{ARCHITECTURE_BENEFITS}}` |
+| Ch 19: Buying Committee | `#ch-buying-committee` (exec cards) | `01-company-context.md` | `{{EXEC_CARDS}}` — photo + title + focus area per executive |
+| Ch 20: Pilot Roadmap | `#ch-pilot` (timeline + financial) | `08-financial-profile.md` | `{{PILOT_TIMELINE_STEPS}}`, `{{PILOT_FINANCIAL_ROWS}}` |
+| Ch 21: Next Steps | `#ch-next-steps` (closing CTA) | All files | `{{NEXT_STEPS_ITEMS}}`, `{{CLOSING_QUOTE}}` |
+| **APPENDIX** | | | |
+| App A: Scoring | `#appendix-scoring` | `10-scoring-matrix.md` | Full 10-area scoring table |
+| App B: Tech Stack | `#appendix-techstack` | `02-tech-stack.md` | Complete BuiltWith analysis |
+| App C: Traffic | `#appendix-traffic` | `03-traffic-data.md` | Full traffic, demographics, keywords |
+| App D: Financials | `#appendix-financials` | `08-financial-profile.md` | 3-year financial tables |
+| App E: Test Queries | `#appendix-queries` | `05-test-queries.md` | All queries with results |
+| App F: Sources | `#appendix-sources` | All files | Bibliography grouped by category |
+
+**Scratchpad Mining Rule**: Every scratchpad file (01-12) MUST contribute to at least one chapter. Rich data tables, demographics, keyword analysis warrant extra detail. Never compress intelligence into thin summaries.
+
+**Variable-Length Sections**: The `{{FINDINGS_SECTIONS}}` placeholder is replaced with 5-8 finding blocks (one per major gap). Use the HTML template in the comment block within `book-template.html` as the pattern for each finding. Similarly, `{{STRATEGY_EXECUTION_PAIRS}}` gets 2-3 strategy-vs-execution pairs.
+
+**Inline Citation Mandate**: Every data point MUST have an inline citation as it appears. Use `<a href="URL" class="cite">[N]</a>` for numbered references and `<span class="source-tag source-tag--TYPE">Source</span>` for visual source badges. Source tag types: `financial`, `traffic`, `technology`, `industry`, `hiring`, `investor`, `competitor`, `casestudy`. The bibliography at the end collects ALL inline references.
+
+**SVG Chart Population**:
+- **Donut chart** (competitors): Calculate `stroke-dasharray` as `(percentage / 100) * 440` for the filled arc, remainder = `440 - filled`.
+- **Bar chart** (hiring): Each bar uses `<div class="bar-row">` with inline `width` percentage.
+- **Revenue funnel**: Tier labels with actual dollar values from `08-financial-profile.md`.
+
+**Screenshot Embedding**: Every finding spread MUST reference `screenshots/{nn}-{slug}.png` via `<img src="screenshots/...">`. The CSS includes `onerror` fallback styling. If a screenshot file is missing, the finding is INCOMPLETE.
+
+**Color Usage**: Color is used creatively within visual metaphors (e.g., stack diagram columns, balance scale weight, funnel gradient, donut arcs) — NOT as simple red/green/yellow traffic lights. The components.css uses Algolia brand palette: Nebula Blue `#003DFF`, Space Gray `#21243D`, Algolia Purple `#5468FF`, with contextual warm (`#E8513D`) and cool (`#36B37E`) accents within components only.
+
+**Step 4: Brand compliance**
+Run `/algolia-brand-check` on the populated HTML. Auto-fix below 8/10.
+
+**Step 5: Convert to PDF**
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless --disable-gpu --no-sandbox \
+  --print-to-pdf="{company}-search-audit-book.pdf" \
+  --print-to-pdf-no-header \
+  "file://$(pwd)/{company}-book.html"
+```
+
+**Step 6: Verify PDF**
+```bash
+ls -la {company}-search-audit-book.pdf
+```
+Expected: 500KB-2MB file. If 0 bytes or missing, debug the HTML file in Chrome manually.
+
+**Emotional Continuity**: Cover = intrigue. Act I = "wait, what?" (the verdict). Act II = mounting evidence (screenshot after screenshot). Ch 12 "In Their Own Words" = emotional climax (their CEO's words vs their broken search). Act III = urgency signals converge. Act IV = relief through resolution.
+
+#### 5b: AE Pre-Call Brief
 Generate `{company}-ae-precall-brief.md` — AE-facing (NOT for prospect). Every data point hyperlinked.
 
 **Structure**:
@@ -859,18 +1232,17 @@ Generate `{company}-ae-precall-brief.md` — AE-facing (NOT for prospect). Every
 9. **Competitive Context** — golden angle if applicable
 10. **Speaking Their Language** — discovery questions using company's OWN language from SEC filings/earnings calls, anchored to ICP-to-Priority mapping from Step 14
 
-#### 5f: Strategic Signal Brief
+#### 5c: Strategic Signal Brief
 Generate `{company}-strategic-signal-brief.md` — 1-page brief for downstream LLM consumption. Every line is standalone with full context. Sections: 60-Second Story, Timing Signals, In Their Own Words (with Speaker + Title), People, Money, Gaps, Hiring Intelligence, Competitive Landscape, ICP Mapping, The Angle, Sources.
 
 ## Output
 
-The audit produces SIX deliverables, all brand-validated:
-1. **`{company}-search-audit.md`** — Full audit report with Strategic Intelligence after exec summary
-2. **`{company}-landing-page.html`** — Dual-view landing page
-3. **`{company}-search-audit-deck.md`** — ~30-33 slide McKinsey Pyramid + Cold Open deck
-4. **`{company}-landing-page.md`** — Landing page content spec
-5. **`{company}-ae-precall-brief.md`** — AE pre-call brief (internal only)
-6. **`{company}-strategic-signal-brief.md`** — Strategic signal brief for downstream LLMs
+The audit produces THREE deliverables, all brand-validated:
+1. **`{company}-search-audit-book.pdf`** — The primary deliverable. A beautiful, print-quality PDF book (~40-50 pages) combining the full audit report, visual findings with screenshots, strategic intelligence, competitor analysis, and recommendations into a single McKinsey Pyramid + Hollywood narrative. Generated from HTML template → Chrome headless PDF.
+2. **`{company}-ae-precall-brief.md`** — AE pre-call brief (internal only, NOT for prospect)
+3. **`{company}-strategic-signal-brief.md`** — Strategic signal brief for downstream LLMs
+
+**Intermediate artifact** (kept in working directory): `{company}-book.html` + `components.css` — the source HTML used to generate the PDF. Useful for debugging or manual adjustments.
 
 ## Key Reference Data (SAIM - Search Audit Impact Map)
 
@@ -931,6 +1303,27 @@ The audit produces SIX deliverables, all brand-validated:
   - This gate exists because Chrome MCP imageIds are SESSION-BOUND and become USELESS after session ends. If screenshots are not on disk NOW, they will NEVER be on disk.
 - [ ] **Zero-byte check**: `find screenshots/ -empty | wc -l` must return 0. Delete and re-capture any empty files.
 - [ ] **Disk path verification**: Each entry in `09-browser-findings.md` must include `Screenshot: screenshots/{nn}-{slug}.png (VERIFIED ON DISK)`. Entries with Chrome MCP imageIds like `ss_XXXXXXX` instead of file paths indicate persistence failure — fix immediately.
+- [ ] **WAF/Error Page Detection** (CRITICAL): Run this check to detect if screenshots are error pages vs real content:
+  ```bash
+  echo "=== Screenshot Quality Check ==="
+  for f in screenshots/*.png; do
+    size=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null)
+    if [ "$size" -lt 50000 ]; then
+      echo "⚠️  WARNING: $f is only ${size} bytes — likely error page or blank"
+    elif [ "$size" -lt 100000 ]; then
+      echo "🟡 REVIEW: $f is ${size} bytes — may be sparse content"
+    else
+      echo "✅ OK: $f is ${size} bytes"
+    fi
+  done
+  ```
+  **Pass criteria**:
+  - At least 10 screenshots > 100KB each (real content with product images)
+  - No screenshots < 50KB (these are WAF "Access Denied" or error pages)
+  - If multiple screenshots are flagged as potential error pages:
+    1. Open one in a viewer to visually confirm
+    2. If confirmed as error page, re-run browser tests with WAF Recovery Protocol
+    3. If site is persistently blocked, document limitation and proceed with available data
 
 ### Gate 3: After Phase 3 — Verify before writing report
 
@@ -941,29 +1334,182 @@ The audit produces SIX deliverables, all brand-validated:
 
 Report MUST contain ALL sections: Executive Summary, Strategic Intelligence, In Their Own Words (with speaker names + titles), Company Context, Technology Stack, Competitor Landscape, Financial Profile, Strategic Leadership, Buying Committee, Hiring Analysis, Revenue Impact, ICP Mapping, Audit Recap, Detailed Findings, Opportunities, Value-Prop Assessment, How Algolia Helps, Next Steps. Source URLs throughout.
 
+### Gate 4.5: MANDATORY Fact Verification (BLOCKING — prevents hallucinated data)
+
+> **⛔ THIS GATE IS NON-NEGOTIABLE. DO NOT PROCEED TO PHASE 5 WITHOUT COMPLETING ALL CHECKS.**
+>
+> **Root cause**: Uncommon Goods audit (2026-02-24) delivered $179M revenue when actual was $227M (27% error), and used 2017 employee data for a 2026 report. This gate prevents such failures.
+
+**4.5.1 Revenue Data Verification**:
+```bash
+# Re-fetch revenue from primary source and compare to scratchpad
+# If discrepancy > 5%, STOP and fix scratchpad before proceeding
+```
+- [ ] Revenue figure verified against primary source (ecdb.com, SEC filing, or company IR)
+- [ ] Revenue year matches current/prior fiscal year (not older)
+- [ ] If private company: source explicitly named, confidence marked as MEDIUM or LOW
+- [ ] Revenue cross-referenced against 2nd source if available (SimilarWeb, PitchBook, Crunchbase)
+
+**4.5.2 Source Freshness Validation**:
+```
+For each data point in scratchpad files, verify:
+- Financial data: Source must be < 12 months old
+- Employee count: Source must be < 12 months old
+- Traffic data: Source must be < 3 months old (SimilarWeb refreshes monthly)
+- Tech stack: Source must be < 6 months old
+```
+- [ ] All financial sources dated within 12 months
+- [ ] All employee/headcount sources dated within 12 months
+- [ ] No sources older than 2 years used for ANY current-state claim
+- [ ] **If source is blog post, press release, or article**: Check publication date. Reject if > 12 months for financial/employee data.
+
+**4.5.3 Cross-Reference Validation**:
+```
+Key metrics MUST be verified against 2+ independent sources:
+- Revenue: ecdb.com + (SimilarWeb revenue estimate OR PitchBook OR Crunchbase)
+- Employee count: LinkedIn + (PitchBook OR Crunchbase OR ZoomInfo)
+- Traffic: SimilarWeb + Semrush (if available)
+```
+- [ ] Revenue cross-referenced (if only 1 source: mark as LOW confidence in deliverables)
+- [ ] Employee count cross-referenced OR removed from deliverables
+- [ ] Any metric with > 20% discrepancy between sources: flag in deliverable with confidence warning
+
+**4.5.4 Primary Source Re-Fetch**:
+Before generating book, RE-FETCH these sources to verify data hasn't changed:
+```bash
+# Use WebFetch to re-check primary sources
+# Compare fetched values to scratchpad values
+# If mismatch: UPDATE scratchpad, then proceed
+```
+- [ ] ecdb.com (or equivalent) re-fetched for revenue
+- [ ] B Corp page re-fetched for certification claims
+- [ ] LinkedIn/PitchBook re-fetched for employee count (if used)
+- [ ] All fetched values match scratchpad (or scratchpad updated)
+
+**4.5.5 Unverifiable Data Handling**:
+If a data point CANNOT be verified against a primary source:
+1. **Remove it** from deliverables entirely, OR
+2. **Mark it explicitly** as `[UNVERIFIED - USE WITH CAUTION]` in the deliverable
+3. **Never present unverified data as fact**
+
+- [ ] All unverifiable claims either removed or marked
+- [ ] No stale sources (> 12 months) used for current-state financial claims
+- [ ] Employee count either verified OR removed (never guessed)
+
+**Blocking Condition**: If ANY of 4.5.1-4.5.5 fails, DO NOT proceed to Phase 5. Fix the data first.
+
 ### Gate 5: After Phase 5 — Verify before completion
 
-**File existence**: All 6 files exist.
+> **⛔ BLOCKING GATE**: ALL checks below must pass before the audit is considered complete. Do NOT skip any verification.
 
-**Screenshot validation**:
-- [ ] `ls screenshots/ | wc -l` → minimum 10
-- [ ] Report references screenshots in gap findings
-- [ ] Landing page has `<img src="screenshots/"` tags
-- [ ] Deck has `![](screenshots/` embeds
-
-**Source citation validation**:
-- [ ] Report: `grep -c '](http' {company}-search-audit.md` → minimum 20 hyperlinks
-- [ ] Landing page: `grep -c 'source-badge' {company}-landing-page.html` → minimum 8
-- [ ] Deck: `grep -c '\[\[' {company}-search-audit-deck.md` → footnoted sources + appendix
-
-**Final validation commands**:
+**5.1 Chapter Count Verification (CRITICAL — prevents incomplete book)**:
 ```bash
-echo "Screenshots:" && ls screenshots/ | wc -l
-echo "Report links:" && grep -c '](http' {company}-search-audit.md
-echo "LP source badges:" && grep -c 'source-badge' {company}-landing-page.html
-echo "Deck footnotes:" && grep -c '\[\[' {company}-search-audit-deck.md
-echo "Zero-byte files:" && find screenshots/ -empty | wc -l
+chapter_count=$(grep -c 'class="chapter"' {company}-book.html)
+echo "Chapter count: $chapter_count"
+if [ "$chapter_count" -lt 25 ]; then
+  echo "⛔ CHAPTER GATE FAILED: Only $chapter_count chapters. Required: 25+"
+  echo "Go back to Phase 5a and complete missing sub-phases."
+  exit 1
+fi
 ```
+- [ ] Chapter count ≥ 25 (21 main chapters + 6 appendices, some may share pages)
+
+**5.2 PDF Page Count Verification (CRITICAL — catches incomplete generation)**:
+```bash
+page_count=$(mdls -name kMDItemNumberOfPages {company}-search-audit-book.pdf 2>/dev/null | awk '{print $3}')
+echo "PDF page count: $page_count"
+if [ "$page_count" -lt 28 ]; then
+  echo "⛔ PAGE COUNT GATE FAILED: Only $page_count pages. Required: 28+"
+  echo "Expected: 28-35 pages for a complete audit."
+  echo "Review HTML for missing chapters before regenerating PDF."
+  exit 1
+fi
+```
+- [ ] PDF page count ≥ 28 pages (typical range: 28-35 for complete audit)
+
+**5.3 Manifest Chapter Checklist Verification**:
+```bash
+incomplete=$(grep -c '\[ \]' _workspace-manifest.md | grep -i "ch \|appendix" || echo 0)
+echo "Incomplete chapters in manifest: $incomplete"
+if [ "$incomplete" -gt 0 ]; then
+  echo "⛔ MANIFEST GATE FAILED: $incomplete chapters still marked incomplete"
+  grep '\[ \]' _workspace-manifest.md | grep -i "ch \|appendix"
+  exit 1
+fi
+```
+- [ ] All chapters marked `[x] done` in manifest
+
+**5.4 File existence**: All 3 deliverables exist + intermediate HTML.
+- [ ] `{company}-search-audit-book.pdf` exists
+- [ ] `{company}-ae-precall-brief.md` exists
+- [ ] `{company}-strategic-signal-brief.md` exists
+- [ ] `{company}-book.html` exists (intermediate artifact)
+
+**5.5 PDF file size validation**:
+- [ ] `ls -la {company}-search-audit-book.pdf` → file size 500KB-5MB
+- [ ] If < 500KB, likely missing images/content
+- [ ] If 0 bytes or missing, debug HTML in Chrome manually before proceeding
+
+**5.6 Screenshot validation**:
+- [ ] `ls screenshots/ | wc -l` → minimum 10
+- [ ] Book HTML has `<img src="screenshots/"` tags for every finding
+- [ ] `grep -c 'src="screenshots/' {company}-book.html` → minimum 5 screenshot references
+
+**5.7 Source citation validation**:
+- [ ] `grep -c 'class="cite"' {company}-book.html` → minimum 15 inline citations
+- [ ] `grep -c 'source-tag' {company}-book.html` → minimum 8 source badges
+- [ ] `grep -c '](http' {company}-ae-precall-brief.md` → minimum 15 hyperlinks
+- [ ] Bibliography section in appendix has entries for ALL source categories
+
+**Final validation script (run ALL checks)**:
+```bash
+echo "========== GATE 5 VALIDATION =========="
+
+# 5.1 Chapter count
+chapter_count=$(grep -c 'class="chapter"' {company}-book.html)
+echo "1. Chapters: $chapter_count (required: 25+)"
+[ "$chapter_count" -ge 25 ] && echo "   ✅ PASS" || echo "   ⛔ FAIL"
+
+# 5.2 PDF page count
+page_count=$(mdls -name kMDItemNumberOfPages {company}-search-audit-book.pdf 2>/dev/null | awk '{print $3}')
+echo "2. PDF pages: $page_count (required: 28+)"
+[ "$page_count" -ge 28 ] && echo "   ✅ PASS" || echo "   ⛔ FAIL"
+
+# 5.3 PDF file size
+pdf_size=$(stat -f%z {company}-search-audit-book.pdf 2>/dev/null || stat -c%s {company}-search-audit-book.pdf 2>/dev/null)
+pdf_size_mb=$(echo "scale=2; $pdf_size / 1048576" | bc)
+echo "3. PDF size: ${pdf_size_mb}MB (required: 0.5-5MB)"
+[ "$pdf_size" -ge 500000 ] && echo "   ✅ PASS" || echo "   ⛔ FAIL"
+
+# 5.4 Screenshots
+screenshot_count=$(ls screenshots/ 2>/dev/null | wc -l | tr -d ' ')
+echo "4. Screenshots: $screenshot_count (required: 10+)"
+[ "$screenshot_count" -ge 10 ] && echo "   ✅ PASS" || echo "   ⛔ FAIL"
+
+# 5.5 Screenshot references in HTML
+screenshot_refs=$(grep -c 'src="screenshots/' {company}-book.html 2>/dev/null || echo 0)
+echo "5. Screenshot refs: $screenshot_refs (required: 5+)"
+[ "$screenshot_refs" -ge 5 ] && echo "   ✅ PASS" || echo "   ⛔ FAIL"
+
+# 5.6 Inline citations
+cite_count=$(grep -c 'class="cite"' {company}-book.html 2>/dev/null || echo 0)
+echo "6. Inline cites: $cite_count (required: 15+)"
+[ "$cite_count" -ge 15 ] && echo "   ✅ PASS" || echo "   ⚠️ WARNING"
+
+# 5.7 AE brief links
+ae_links=$(grep -c '](http' {company}-ae-precall-brief.md 2>/dev/null || echo 0)
+echo "7. AE brief links: $ae_links (required: 15+)"
+[ "$ae_links" -ge 15 ] && echo "   ✅ PASS" || echo "   ⚠️ WARNING"
+
+# 5.8 Zero-byte files check
+zero_byte=$(find screenshots/ -empty 2>/dev/null | wc -l | tr -d ' ')
+echo "8. Zero-byte files: $zero_byte (required: 0)"
+[ "$zero_byte" -eq 0 ] && echo "   ✅ PASS" || echo "   ⛔ FAIL"
+
+echo "========================================"
+```
+
+**If checks 1, 2, or 3 FAIL**: Do NOT mark audit as complete. Fix the issues first.
 
 ## Notes
 
@@ -971,17 +1517,209 @@ echo "Zero-byte files:" && find screenshots/ -empty | wc -l
 - Focus on issues Algolia can solve
 - Use the prospect's actual product names and categories in examples
 - If the site already uses Algolia, focus on optimization opportunities
-- Always generate all six deliverables — they are a complete package
-- The landing page MUST include dual-view tabbed interface (Executive Summary + Deep Dive)
-- The 12 scratchpad files are a BOOK of research intelligence. Each file is a chapter. Never compress multi-dimensional data into thin one-line summaries. Each file deserves dedicated slide(s) with full data tables and strategic insights.
-- Title slide MUST have company store/HQ photo + logo + status badge
-- Scratchpad → Slide depth: Traffic data → 2 slides. Tech stack → 1 slide. Hiring → 1 enriched slide. Investor intelligence → 2 slides. Executives → 1 enriched slide.
+- Always generate all three deliverables (PDF book + AE brief + signal brief) — they are a complete package
+- The 12 scratchpad files are chapters of research intelligence. Each file MUST contribute to at least one book chapter. Never compress multi-dimensional data into thin one-line summaries.
+- Cover page MUST have company store/HQ photo + Algolia branding + status headline
 - Every standalone insight in the signal brief must survive context dropping by downstream LLMs
-- Deck designed for Google Slides — Visual Notes describe layout, Speaker Notes provide 60-90 sec talking points
 - Never compress Phase 1 data into single lines — tech stack, traffic, and competitor landscape deserve full sections with tables
+- **Book visual quality**: The PDF book must match NotebookLM-quality visuals. Use the 25 CSS components (KPI dashboards, revenue funnels, finding spreads, SVG charts, executive cards, balance scales, flow diagrams, etc.) creatively. Color usage within visual metaphors — NOT simple red/green/yellow traffic lights.
+- **Inline citations everywhere**: Every data point gets an inline `<a class="cite">[N]</a>` as it appears. Source badges (`<span class="source-tag">`) on every data section. Full bibliography collected at the end in Appendix F.
+- **Template file integrity**: The `book-template.html` and `components.css` files in `~/.claude/skills/algolia-search-audit/templates/` are the canonical source. Always copy fresh copies to the working directory — never modify the templates in the skill directory.
 - **Post-compaction data integrity**: After any context compaction mid-audit, treat ALL numerical data in memory as UNVERIFIED. Always re-read scratchpad files before using any data point. The most dangerous hallucination pattern is plausible regeneration — where the model creates internally consistent but factually wrong numbers (e.g., traffic sources that sum to 100% but with wrong individual values).
 - **Competitor table scrambling**: LLMs are especially bad at preserving column-row associations in competitor tables after context compaction. The model remembers "4 competitors had bounce rates in the 28-51% range" but assigns values to the wrong company names. ALWAYS copy competitor tables from scratchpad 04, never regenerate.
 - **Browser observations are exact**: When the browser shows "10,000+ New Items", record exactly "10,000+" — do not round up, generalize, or inflate to "30,000+". [OBSERVED] values are verbatim.
+
+## Visual Standards (v2.8 — Enhanced Visuals)
+
+The PDF book must match NotebookLM-quality visuals. The `components.css` library includes 35 component types. This section documents the 7 visual standards that must be applied to every audit.
+
+### 1. Score Gauge with Visual Weight
+
+The overall score (e.g., 4.2/10) MUST be displayed as a **radial arc gauge** with color gradient, not just a number.
+
+**Component**: `.score-gauge`
+
+**Implementation**:
+```html
+<div class="score-gauge">
+  <svg class="score-gauge__svg" viewBox="0 0 100 100">
+    <circle class="score-gauge__bg" cx="50" cy="50" r="45" />
+    <circle class="score-gauge__arc score-gauge__arc--critical" cx="50" cy="50" r="45"
+            stroke-dasharray="{{GAUGE_DASHARRAY}}" />
+  </svg>
+  <div class="score-gauge__center">
+    <div class="score-gauge__value score-gauge__value--critical">4.2</div>
+    <div class="score-gauge__label">Search Score</div>
+    <div class="score-gauge__verdict">Needs Improvement</div>
+  </div>
+</div>
+```
+
+**Calculation**:
+- Circumference = 2 × π × 45 = 283
+- `stroke-dasharray` = `(score/10 × 283) (283 - that value)`
+- Example: 4.2/10 → `"119 164"`
+
+**Color classes**:
+- `.score-gauge__arc--critical` (≤4): Red gradient
+- `.score-gauge__arc--warning` (5-6): Amber gradient
+- `.score-gauge__arc--good` (≥7): Green gradient
+
+### 2. Severity Heatmap Table
+
+Appendix A scoring table MUST use color-coded cells where HIGH = red, MED = amber, LOW = green. Readable at a glance without reading a word.
+
+**Component**: `.severity-heatmap`
+
+**Cell classes**:
+- `.severity--high`: Red gradient background
+- `.severity--medium`: Amber gradient background
+- `.severity--low`: Green gradient background
+- `.score-cell--N` (N=1-10): Score-specific color intensity
+
+**Severity distribution cards**: Visual blocks showing HIGH/MED/LOW counts with colored backgrounds.
+
+### 3. Tapered Revenue Funnel
+
+The revenue waterfall MUST be a proper **tapered SVG funnel**, not CSS rectangles. The funnel visually narrows from $7B → $2.45B → $367M → $18.4M.
+
+**Component**: `.funnel-svg` or `.funnel-css`
+
+**SVG approach** (preferred — use 3 tiers to prevent text clipping):
+```html
+<!-- CRITICAL: Bottom tier MUST be ≥100px wide to fit "$X.XM/year" text -->
+<svg viewBox="0 0 500 320">
+  <polygon points="40,10 460,10 400,90 100,90" fill="#c7d2fe"/>           <!-- Tier 1: ~300px wide -->
+  <polygon points="100,100 400,100 340,180 160,180" fill="#a5b4fc"/>     <!-- Tier 2: ~180px wide -->
+  <polygon points="160,190 340,190 305,280 195,280" fill="#818cf8"/>     <!-- Tier 3: 110px bottom -->
+  <!-- Bottom tier points: 305-195 = 110px wide — DO NOT MAKE NARROWER -->
+</svg>
+```
+**Anti-pattern** (causes text clipping — DO NOT USE):
+```html
+<!-- BAD: 4 tiers with 40px bottom — text will clip -->
+<polygon points="150,240 250,240 220,300 180,300"/>  <!-- 40px too narrow! -->
+```
+
+**CSS trapezoid approach** (fallback): Uses `clip-path: polygon()` for tapered tiers.
+
+### 4. Real Data Charts
+
+Traffic sources, demographics, and competitor comparisons MUST use actual SVG charts, not tables.
+
+**Components**:
+- `.donut-multi`: Multi-segment donut chart for traffic sources (organic, direct, paid, referral, social, email)
+- `.demographics-chart`: Age/gender pie chart with legend
+- `.bar-chart-h`: Horizontal bar chart for competitor traffic comparison
+
+**Donut segment calculation**:
+- Circumference = 2 × π × 40 = 251.33
+- Each segment: `stroke-dasharray = (percentage/100 × 251.33) (251.33 - that value)`
+- `stroke-dashoffset` = cumulative length of previous segments (negative)
+
+**Legend**: Always include `.donut-legend` or `.demographics-chart__legend` with color swatches.
+
+### 5. Annotated Screenshots
+
+Every finding screenshot MUST have visual callouts pointing to the specific issue — not just text adjacent to an image.
+
+**Components**:
+- `.annotation-circle`: Red circle highlighting area of concern (sizes: --sm, --md, --lg, --xl)
+- `.annotation-callout`: Labeled callout box with directional pointer (--left, --right, --top, --bottom)
+- `.annotation-number`: Numbered badge for multiple issues
+- `.annotation-arrow`: SVG arrow pointing to element (uses `marker-end="url(#arrowhead)"`)
+
+**Example**:
+```html
+<div class="annotated-screenshot">
+  <img src="screenshots/05-typo.png" alt="Typo test">
+  <div class="annotation-circle annotation-circle--lg"
+       style="top: 45%; left: 30%; transform: translate(-50%, -50%);"></div>
+  <div class="annotation-callout annotation-callout--left"
+       style="top: 45%; right: 10px;">
+    1 RESULT
+  </div>
+</div>
+```
+
+### 6. Gap Diagrams and Radar Charts
+
+The "Strategy vs Execution" story MUST be visualized, not just described in text.
+
+**Components**:
+- `.gap-diagram`: Two-column layout (expected vs actual) connected by broken bridge
+- `.radar-chart`: Multi-axis radar comparing expected vs actual performance
+
+**Gap diagram structure**:
+```html
+<div class="gap-diagram">
+  <div class="gap-diagram__column gap-diagram__column--expected">
+    <!-- What they told investors -->
+  </div>
+  <div class="gap-diagram__bridge">
+    <div class="gap-diagram__bridge-line"></div>
+    <div class="gap-diagram__bridge-icon">✕</div>
+  </div>
+  <div class="gap-diagram__column gap-diagram__column--actual">
+    <!-- What the audit found -->
+  </div>
+</div>
+```
+
+**Radar chart**: 5-axis radar with `.radar-chart__polygon--expected` (green) overlaying `.radar-chart__polygon--actual` (red).
+
+### 7. Enhanced Flow Diagrams with Visual Hierarchy
+
+Flow diagrams MUST differentiate between data flows, comparisons, and timelines — not all use the same flat boxes.
+
+**Components**:
+- `.flow-enhanced--pipeline`: Data flow with gradient connectors and directional arrows
+- `.flow-enhanced--comparison`: Side-by-side with `.flow-enhanced__vs-badge`
+- `.flow-enhanced--timeline`: Vertical timeline with `.flow-enhanced__node` milestones
+
+**Box types**:
+- `.flow-enhanced__box--source`: Light gray, source data
+- `.flow-enhanced__box--algolia`: Blue-purple gradient, Algolia processing
+- `.flow-enhanced__box--destination`: Green gradient, buyer experience
+- `.flow-enhanced__box--highlight`: Blue border glow for emphasis
+
+### SVG Icon Library
+
+All icons MUST be consistent SVG designs, not emoji or Unicode characters.
+
+**Component**: `.icon` with size modifiers (`--sm`, `--md`, `--lg`, `--xl`) and color modifiers (`--primary`, `--white`, `--critical`, `--positive`, `--gray`).
+
+**Required icons** (defined in template comments):
+- Search, Settings/gear, Dollar/revenue, Chart/analytics, Users/people
+- Alert/warning, Check, X/close, Target/bullseye, Lightning/speed
+
+### Visual Standards Checklist (Gate 5 Addition)
+
+Before finalizing the PDF, verify:
+
+**Page Layout & Branding:**
+- [ ] Cover page has dual logos (Algolia + company) centered at top
+- [ ] Cover page has company storefront/HQ photo as background
+- [ ] Cover page has `© Algolia Confidential` footer
+- [ ] Every chapter has `.page-header` with Algolia logo (left) + company logo (right)
+- [ ] Every chapter has `.page-footer` with `© Algolia Confidential` (left) + page number (right)
+
+**Findings Layout (70/30):**
+- [ ] Findings use `.finding__body--70-30` grid (7fr 3fr)
+- [ ] Left column: large `.annotated-screenshot--large` (takes 70% width)
+- [ ] Right column: `.finding__analysis--compact` with problem box, impact stat, solution
+- [ ] At least 5 screenshots have `.annotation-circle` or `.annotation-callout`
+
+**Charts & Visualizations:**
+- [ ] Score gauge uses radial arc with gradient (not just number)
+- [ ] Appendix A uses `.severity-heatmap` with color-coded cells
+- [ ] Revenue funnel uses tapered SVG (not CSS rectangles)
+- [ ] Traffic sources use `.donut-multi` chart (not table)
+- [ ] Demographics use pie/donut chart (not table)
+- [ ] Competitor comparison uses `.bar-chart-h` (not table only)
+- [ ] "In Their Words" chapter has gap diagram or radar chart
+- [ ] Architecture flow uses `.flow-enhanced--pipeline` with directional arrows
+- [ ] All icons are SVG (no emoji/Unicode in body content)
 
 ## MCP Server Integration (Required Tools)
 
@@ -1072,14 +1810,146 @@ All tools used automatically — no user prompting needed. If any tool is unavai
 
 After completing Phase 3 (Analyze & Score):
 1. **Refine Step 14**: Re-read `10-scoring-matrix.md` and update ICP-to-Priority Mapping with audit findings mapped to investor quotes.
-2. **Phase 4**: Write report. Hyperlink every data point. (Run Pre-Deliverable Data Refresh before writing.)
-3. **Phase 5c**: Write content spec IMMEDIATELY after report — both share the same data tables and the scratchpad data is still in active context. (Run Pre-Deliverable Data Refresh before writing.)
-4. **Phase 5a**: Write landing page HTML with evidence cards, screenshots, source badges. (Run Pre-Deliverable Data Refresh before writing.)
-5. **Phase 5b**: Write deck (~30-33 slides). Read ALL scratchpad files first. Each file = at least one slide. Title slide with company photo + logo + status badge. Source footnotes + appendix. (Run Pre-Deliverable Data Refresh before writing.)
-6. **Phase 5d**: Run `/algolia-brand-check` — auto-fix below 8/10.
-7. **Phase 5e**: Write AE brief with "Speaking Their Language" section. (Run Pre-Deliverable Data Refresh before writing.)
-8. **Phase 5f**: Write signal brief with all standalone insights and source URLs. (Run Pre-Deliverable Data Refresh before writing.)
+2. **Phase 4**: Write report as intermediate working document. Hyperlink every data point. (Run Pre-Deliverable Data Refresh before writing.)
+3. **Phase 5a**: Assemble the book — the MAIN deliverable.
+   - Copy template files from `~/.claude/skills/algolia-search-audit/templates/`
+   - Run Pre-Deliverable Data Refresh (read ALL 12 scratchpad files)
+   - Populate every `{{PLACEHOLDER}}` in the HTML with real data
+   - Generate variable-count finding sections (one per gap)
+   - Generate strategy-execution pairs for "In Their Own Words"
+   - Run `/algolia-brand-check` on the HTML — auto-fix below 8/10
+   - Convert to PDF via Chrome headless `--print-to-pdf`
+   - Verify PDF file size (expected 500KB-2MB)
+4. **Phase 5b**: Write AE brief with "Speaking Their Language" section. (Run Pre-Deliverable Data Refresh before writing.)
+5. **Phase 5c**: Write signal brief with all standalone insights and source URLs. (Run Pre-Deliverable Data Refresh before writing.)
 
-**Ordering rationale**: The content spec (5c) MUST be generated right after the report (Phase 4) while scratchpad data is still in the active context window. Generating it last — after deck, HTML, and briefs — risks context compaction corrupting numerical data. The TheRealReal audit proved this: the content spec was the last file generated and contained 12 data errors while all other files had zero.
+**Ordering rationale**: The book (5a) MUST be generated first while all 12 scratchpad files are in active context. It is the most data-intensive deliverable — populating 21 chapters + 6 appendices with exact figures. The AE brief and signal brief are shorter and less vulnerable to data drift. The TheRealReal audit proved that deliverables generated after context compaction contain data errors — the book MUST be assembled while scratchpad data is fresh.
 
-All files written to same working directory. Every deliverable uses the same data, findings, screenshots, and SAIM stats. The Pre-Deliverable Data Refresh MUST run before each file regardless of order.
+All files written to same working directory. Every deliverable uses the same data, findings, screenshots, and SAIM stats. The Pre-Deliverable Data Refresh MUST run before each deliverable regardless of order.
+
+## Lessons Learned from Past Audits
+
+### Tapestry/Coach Audit (2026-02-23) — WAF Blocking & Chrome Recovery
+
+**Problem**: Coach.com uses Akamai WAF which blocked all automated browser attempts. Initial Playwright tests showed "Access Denied" pages. Chrome MCP was not configured in user's MCP settings.
+
+**Symptoms observed**:
+- Screenshots were ~30KB (error pages) instead of >100KB (real content)
+- Page titles contained "Access Denied"
+- Multiple retry attempts failed with same result
+
+**Resolution sequence**:
+1. Verified Chrome MCP was missing from `~/.claude/mcp_settings.json`
+2. Added Chrome MCP configuration, user restarted Claude Code
+3. Chrome MCP still failed (possibly WAF detecting automation signatures)
+4. Launched real Chrome with `--remote-debugging-port=9222`
+5. Installed puppeteer-core in workspace: `npm install puppeteer-core`
+6. Connected to existing Chrome via `puppeteer.connect({ browserURL: 'http://127.0.0.1:9222' })`
+7. Used human-like typing delays (50-150ms between keystrokes)
+8. Successfully captured 15 valid screenshots (all >100KB)
+
+**Key learnings added to skill**:
+- Phase 2 Pre-Flight Checklist (verify Chrome MCP + remote debugging setup)
+- WAF Detection & Recovery Protocol
+- Search Input Selector Resilience (fallback chain)
+- Screenshot Quality Check in Gate 2 (file size validation)
+
+### TheRealReal Audit (2026-02-23) — Post-Compaction Data Hallucination
+
+**Problem**: Content spec was generated after context compaction and contained 12 data errors. Traffic sources, demographics, and competitor bounce rates were all regenerated from lossy memory.
+
+**Symptoms observed**:
+- Traffic source percentages were internally consistent (summed to 100%) but factually wrong
+- Competitor bounce rates were scrambled (values assigned to wrong companies)
+- Other deliverables generated earlier had zero errors
+
+**Resolution**: Added Pre-Deliverable Data Refresh mandate and Data Table Freeze Rule.
+
+### Uncommon Goods Audit (2026-02-23) — Incomplete Book Generation (CRITICAL FAILURE)
+
+**Problem**: Book PDF was generated with only 21 pages instead of expected 30+ pages. Approximately 10 chapters were silently skipped during book assembly, including Tech Stack, AI Gap, Strategic Triggers, Architecture Flow, Pilot Roadmap, and Appendices C-F.
+
+**Root causes identified**:
+1. **Context window exhaustion**: By Phase 5a (book assembly), context was nearly full from reading 12 scratchpad files (~35K tokens). Context compaction caused the model to lose track of which chapters had been added vs. which still needed adding.
+2. **No chapter-level verification gates**: Skill had Phase-level gates but nothing that verified all 21+ chapters existed in HTML before PDF generation.
+3. **No incremental disk writes**: Book assembly tried to populate entire HTML at once. When context compressed mid-way, remaining chapters were forgotten.
+4. **No manifest checklist for chapters**: Workspace manifest tracked research steps but NOT book chapter completion.
+
+**Symptoms observed**:
+- PDF was 21 pages instead of 30+ (missing ~10 chapters)
+- User caught the issue — model did NOT detect it
+- Page numbers were out of sequence (jumped from 19 to 15)
+- Multiple Acts entirely missing (Act III mostly absent, Act IV appendices missing)
+
+**Resolution (skill updates made)**:
+1. **Added Book Chapter Checklist to manifest** (Phase 0): All 21 chapters + 6 appendices must be tracked with `[ ]`/`[x]` checkboxes
+2. **Split Phase 5a into 6 sub-phases**:
+   - 5a-1: Cover + Act I (chapters 1-3) → save → verify
+   - 5a-2: Act II (chapters 4-12) → save → verify
+   - 5a-3: Act III (chapters 13-17) → save → verify
+   - 5a-4: Act IV (chapters 18-21) → save → verify
+   - 5a-5: Appendices A-F → save → verify
+   - 5a-6: Final verification gate (BLOCKING)
+3. **Added Gate 5 chapter count verification**: `grep -c 'class="chapter"'` must return ≥25
+4. **Added Gate 5 PDF page count verification**: `mdls -name kMDItemNumberOfPages` must return ≥28
+5. **Added blocking gates**: Audit cannot be marked complete if chapter/page checks fail
+
+**Key lesson**: Context compaction is the #1 enemy of long multi-phase tasks. Any task that fills context MUST have incremental disk writes with verification after each sub-phase. Never trust that "I'll remember to do X later" — by the time "later" arrives, context may have compressed and X is forgotten.
+
+### Costco Audit (2026-02-21) — Richest Intelligence Mining
+
+**Achievement**: Most comprehensive audit to date — 12 scratchpad files, 9 CEO/CFO quotes, 5 SEC 10-K risk factors, ~78-101 hiring roles analyzed, 33-slide deck.
+
+**Key learnings**:
+- Scratchpad mining rule: Every file = dedicated slide(s)
+- Investor intelligence breadth: Capture quotes from ANY named executive, not just CEO/CFO
+- ICP-to-Priority mapping creates the strongest sales angles
+
+### Tapestry/Coach Audit (2026-02-23) — Book Editorial Standards v2
+
+**Achievement**: Refined PDF book with proper page structure, header/footer positioning, and hero screenshot layout.
+
+**Page Structure (CRITICAL)**:
+```css
+.chapter {
+  width: 8.5in;
+  height: 11in;
+  padding: 0.5in 0.6in 0.7in 0.6in;
+  box-sizing: border-box;
+  position: relative;
+  page-break-after: always;
+  overflow: hidden;
+}
+```
+
+**12 Editorial Standards (v2)**:
+1. **Fixed page dimensions**: Each `.chapter` is exactly 8.5in × 11in (letter size)
+2. **Header ABSOLUTE TOP**: `position: absolute; top: 0.4in;` — Company logo top-right
+3. **Footer ABSOLUTE BOTTOM**: `position: absolute; bottom: 0.35in;` — Algolia mark + "© Algolia Confidential" + page number
+4. **Headers/footers on ALL pages**: Including finding pages, appendix, everything
+5. **Finding: Screenshot as HERO**: `.tef-screenshot { height: 5in; }` — 55% of usable page
+6. **Finding: Full-width stat bar**: `.tef-stat { width: 100%; }` — stretches entire width
+7. **Finding: Full-width solution**: `.tef-solution { width: 100%; }` — stretches entire width
+8. **SVG text visibility**: NEVER use `fill="#5A5E9A"` (too light). USE `fill="#4B5563"` or `fill="#21243D"`
+9. **SVG text size**: Minimum 11px for labels, 13px for important text, always `font-weight="600"+`
+10. **Gauge legend expanded**: `viewBox="0 0 240 220"`, legend at `cy="200"` with `font-size="15"`
+11. **Section breaks**: Binder-style with gradient background, white text, Chapter I/II/III/IV
+12. **Cover page**: Company photo + dual logos (Algolia + Company)
+
+**PDF Generation Command**:
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless=new \
+  --disable-gpu \
+  --no-pdf-header-footer \
+  --print-to-pdf-no-header \
+  --print-to-pdf="output.pdf" \
+  "http://localhost:8788/book.html"
+```
+
+**Critical flags**:
+- `--no-pdf-header-footer`: Removes Chrome's default localhost URL footer
+- `--print-to-pdf-no-header`: Additional header suppression
+- Must serve via localhost HTTP server, NOT `file://` URLs
+
+**Template files**: `book-template.html` and `components.css` contain all standards.
