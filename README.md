@@ -474,7 +474,8 @@ git pull
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v3.0** | **2026-02-25** | **Vertical-to-case-study mapping** (auto-selects relevant Algolia case studies based on prospect industry). SimilarWeb Technologies API cross-check for search vendor detection. TAG DETECTED vs ACTIVE verification workflow. web_source standardization (all traffic data uses consistent parameters). Book PDF as 7th deliverable (32+ pages, print-ready). Yahoo Finance MCP for public company financials. |
+| **v3.1** | **2026-02-25** | **Private company intelligence** (comprehensive revenue triangulation, CEO interview scraping, funding round analysis, tech investment signals). **Auto-generated SVG charts** for 3-year trends (revenue line chart, multi-metric indexed chart, capex bar chart). Private company visual confidence indicators. |
+| v3.0 | 2026-02-25 | Vertical-to-case-study mapping (auto-selects relevant Algolia case studies based on prospect industry). SimilarWeb Technologies API cross-check for search vendor detection. TAG DETECTED vs ACTIVE verification workflow. web_source standardization (all traffic data uses consistent parameters). Book PDF as 7th deliverable (32+ pages, print-ready). Yahoo Finance MCP for public company financials. |
 | v2.9 | 2026-02-24 | Book chapter completion gates (sub-phase verification), funnel SVG dimensions fix (3-tier design with 110px bottom). Context compaction mitigation. |
 | v2.8 | 2026-02-23 | Print-ready PDF book deliverable, 11 editorial standards for book layout, Chrome headless PDF generation, header/footer on every page. |
 | v2.7 | 2026-02-21 | Scratchpad mining philosophy, deck expanded to ~30-33 slides, presentation standards |

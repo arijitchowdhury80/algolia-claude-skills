@@ -186,7 +186,7 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
 ### Act I: The Verdict
 [ ] Ch 1: Bottom Line (KPI dashboard + score meter)
 [ ] Ch 2: Company Snapshot (at-a-glance profile + key strategic signal)
-[ ] Ch 3: Opportunity (revenue funnel)
+[ ] Ch 3: Opportunity (revenue funnel + **3-year trend SVG chart**)
 [ ] Ch 4: The Ask (timeline + financial card)
 
 ### Act II: The Proof
@@ -478,10 +478,83 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
     h. **Supplemental WebSearch** (only if above steps return insufficient data):
        - `"{company} CEO keynote conference 2025 2026"` + `"{company} technology roadmap"`
 
-    **For private companies** (fallback):
-    - WebSearch: CEO interviews, funding rounds, press releases, conference talks
+    **For private companies** (COMPREHENSIVE — not a lightweight fallback):
 
-    **Extraction targets**:
+    Private companies require MORE research effort, not less. Without SEC filings, you must triangulate from multiple public sources.
+
+    a. **Revenue Intelligence** (WebSearch — try ALL of these):
+       - `"{company}" revenue 2024 2025 million OR billion`
+       - `"{company}" annual sales estimates`
+       - `site:ecdb.com "{company}"` — eCommerceDB has private company estimates
+       - `site:pitchbook.com "{company}"` OR `site:crunchbase.com "{company}"` — funding/valuation implies revenue range
+       - `site:builtin.com "{company}" OR site:glassdoor.com "{company}" reviews` — employee reviews sometimes mention scale
+       - `"{company}" "series" funding round valuation` — late-stage valuations often correlate to revenue multiples
+       - `"{company}" Inc 5000 OR "fastest growing"` — growth lists publish revenue data
+
+    b. **3-Year Trend Estimation** (for private companies):
+       - Use ecdb.com year-over-year if available
+       - Compare founding year + employee count + traffic trends to estimate growth trajectory
+       - Note: Mark ALL private company revenue as `[ESTIMATE]` with confidence level
+
+       **Trend Estimation Table (private company format)**:
+       | Metric | FY2023 (Est.) | FY2024 (Est.) | FY2025 (Est.) | Est. CAGR | Confidence |
+       |--------|---------------|---------------|---------------|-----------|------------|
+       | Revenue | ~$XXM | ~$XXM | ~$XXM | X% | LOW/MED |
+       | Employees | X | X | X | X% | HIGH (LinkedIn) |
+       | Traffic | X.XM | X.XM | X.XM | X% | HIGH (SimilarWeb) |
+
+    c. **Technology Investment Signals** (private companies):
+       - `"{company}" CTO interview OR podcast OR conference`
+       - `"{company}" engineering blog` — WebFetch if found
+       - `"{company}" "tech stack" OR "architecture" OR "platform"`
+       - `"{company}" hiring "senior engineer" OR "staff engineer" headcount`
+       - `site:techcrunch.com OR site:venturebeat.com "{company}"`
+       - LinkedIn: search for company engineering leaders, note team growth
+
+    d. **CEO/Founder Voice** (critical for private companies — often ONLY source of strategic direction):
+       - `"{CEO name}" interview podcast 2024 2025 2026`
+       - `"{CEO name}" keynote conference`
+       - `"{company}" founder story OR "how we built"`
+       - `site:youtube.com "{company}" CEO`
+       - WebFetch on podcast transcripts (e.g., "How I Built This", industry podcasts)
+
+    e. **Funding & Investor Intelligence**:
+       - `"{company}" funding round series investors`
+       - `"{company}" valuation 2024 2025`
+       - If PE-backed: `"{PE firm}" "{company}" investment thesis`
+       - Investor press releases often contain growth metrics
+
+    f. **Industry/Analyst Coverage**:
+       - `"{company}" industry report OR market analysis`
+       - `"{company}" competitor analysis`
+       - Trade publication coverage (retail: NRF, RIS; tech: TechCrunch, Protocol)
+
+    **Private Company Output Template** → Write to `11-investor-intelligence.md`:
+    ```
+    ## Investor Intelligence — {Company} (PRIVATE)
+
+    ### Company Classification
+    - **Ownership**: {Private / PE-backed / Family-owned / VC-backed}
+    - **Est. Revenue**: ${X}M ({source} — {date verified})
+    - **Data Confidence**: {HIGH/MEDIUM/LOW}
+    - **Limitation**: No SEC filings, earnings calls, or analyst coverage available
+
+    ### In Their Own Words (Sourced Quotes)
+    | # | Speaker | Title | Quote | Source | Date | Source URL |
+    |---|---------|-------|-------|--------|------|-----------|
+    | 1 | {CEO Name} | Founder/CEO | "{quote}" | {Podcast/Interview} | {Date} | {url} |
+
+    ### Technology Investment Signals
+    - **Engineering Team Size**: {X engineers} (LinkedIn, {date})
+    - **Key Hires (Last 12 months)**: {notable tech hires}
+    - **Tech Stack Indicators**: {from job postings, blog, BuiltWith}
+    - **Digital Initiatives**: {from press releases, interviews}
+
+    ### Strategic Priorities (from public statements)
+    1. {priority — with source + URL}
+    ```
+
+    **Extraction targets** (applies to BOTH public and private companies):
     - 5-8 direct quotes from **any executive** speaking (CEO, CFO, CTO, COO, SVP, VP, or any named speaker) about digital/technology/e-commerce priorities — across MULTIPLE earnings calls and investor presentations
     - Stated e-commerce revenue target or growth goal (forward guidance to Wall Street)
     - Capex allocation: what % goes to digital vs. physical expansion (3-year trend)
@@ -1264,7 +1337,7 @@ Open `{company}-book.html` and replace every `{{PLACEHOLDER}}` with real data fr
 | **ACT I: THE VERDICT** | | | |
 | Ch 1: Bottom Line | `#ch-bottom-line` (KPI dashboard) | All files | `{{OVERALL_SCORE}}`, `{{CRITICAL_GAP_LABEL}}`, `{{REVENUE_RISK}}`, `{{THE_ASK_LABEL}}` + descriptions |
 | Ch 2: Company Snapshot | `#ch-snapshot` (at-a-glance) | `01-company-context.md`, `08-financial-profile.md` | `{{REVENUE}}`, `{{EMPLOYEES}}`, `{{FOUNDED}}`, `{{INDUSTRY}}`, `{{KEY_SIGNAL}}` (e.g. Listrak partnership) |
-| Ch 3: Opportunity | `#ch-opportunity` (revenue funnel) | `08-financial-profile.md` | `{{TOTAL_DIGITAL_REVENUE}}`, `{{SEARCH_ADDRESSABLE}}`, `{{CONSERVATIVE_LIFT_PCT}}`, `{{BENCHMARK_PROOF}}` |
+| Ch 3: Opportunity | `#ch-opportunity` (revenue funnel + **3-year trend chart**) | `08-financial-profile.md` | `{{TOTAL_DIGITAL_REVENUE}}`, `{{SEARCH_ADDRESSABLE}}`, `{{CONSERVATIVE_LIFT_PCT}}`, `{{BENCHMARK_PROOF}}`, **SVG multi-metric indexed chart** |
 | Ch 4: The Ask | `#ch-the-ask` (timeline + Pilot Success Metrics) | `08-financial-profile.md` | `{{PILOT_TIMELINE_STEPS}}`, `{{PILOT_SUCCESS_METRICS}}` (see below) |
 | **ACT II: THE PROOF** | | | |
 | Ch 4: Scorecard | `#ch-scorecard` (dual panel) | `10-scoring-matrix.md` | `{{PANEL_POSITIVE_ITEMS}}`, `{{PANEL_CRITICAL_ITEMS}}` |
@@ -1285,7 +1358,7 @@ Open `{company}-book.html` and replace every `{{PLACEHOLDER}}` with real data fr
 | App A: Scoring | `#appendix-scoring` | `10-scoring-matrix.md` | Full 10-area scoring table |
 | App B: Tech Stack | `#appendix-techstack` | `02-tech-stack.md` | Complete BuiltWith analysis |
 | App C: Traffic | `#appendix-traffic` | `03-traffic-data.md` | Full traffic, demographics, keywords |
-| App D: Financials | `#appendix-financials` | `08-financial-profile.md` | 3-year financial tables |
+| App D: Financials | `#appendix-financials` | `08-financial-profile.md` | 3-year financial tables + **SVG trend charts** (revenue line, capex bars, multi-metric indexed) |
 | App E: Test Queries | `#appendix-queries` | `05-test-queries.md` | All queries with results |
 | App F: Sources | `#appendix-sources` | All files | Bibliography grouped by category |
 
@@ -1295,10 +1368,95 @@ Open `{company}-book.html` and replace every `{{PLACEHOLDER}}` with real data fr
 
 **Inline Citation Mandate**: Every data point MUST have an inline citation as it appears. Use `<a href="URL" class="cite">[N]</a>` for numbered references and `<span class="source-tag source-tag--TYPE">Source</span>` for visual source badges. Source tag types: `financial`, `traffic`, `technology`, `industry`, `hiring`, `investor`, `competitor`, `casestudy`. The bibliography at the end collects ALL inline references.
 
-**SVG Chart Population**:
-- **Donut chart** (competitors): Calculate `stroke-dasharray` as `(percentage / 100) * 440` for the filled arc, remainder = `440 - filled`.
-- **Bar chart** (hiring): Each bar uses `<div class="bar-row">` with inline `width` percentage.
-- **Revenue funnel**: Tier labels with actual dollar values from `08-financial-profile.md`.
+**SVG Chart Population (MANDATORY for all audits)**:
+
+All financial visualizations MUST be auto-generated SVG, not placeholder images. Use data from `08-financial-profile.md`.
+
+**1. 3-Year Revenue Trend Line Chart** (Chapter: Financial Appendix):
+```html
+<svg viewBox="0 0 400 200" class="trend-chart">
+  <!-- Grid lines -->
+  <line x1="50" y1="20" x2="50" y2="160" stroke="#e5e7eb" stroke-width="1"/>
+  <line x1="50" y1="160" x2="380" y2="160" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- Y-axis labels (revenue in $B or $M) -->
+  <text x="45" y="25" text-anchor="end" font-size="11" fill="#6B7280">${{MAX_REV}}</text>
+  <text x="45" y="90" text-anchor="end" font-size="11" fill="#6B7280">${{MID_REV}}</text>
+  <text x="45" y="160" text-anchor="end" font-size="11" fill="#6B7280">$0</text>
+
+  <!-- X-axis labels (years) -->
+  <text x="120" y="180" text-anchor="middle" font-size="12" font-weight="600" fill="#21243D">FY{{YEAR1}}</text>
+  <text x="215" y="180" text-anchor="middle" font-size="12" font-weight="600" fill="#21243D">FY{{YEAR2}}</text>
+  <text x="310" y="180" text-anchor="middle" font-size="12" font-weight="600" fill="#21243D">FY{{YEAR3}}</text>
+
+  <!-- Revenue line (Algolia Purple) -->
+  <polyline points="120,{{Y1}} 215,{{Y2}} 310,{{Y3}}"
+            fill="none" stroke="#5468FF" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Data points with values -->
+  <circle cx="120" cy="{{Y1}}" r="6" fill="#5468FF"/>
+  <circle cx="215" cy="{{Y2}}" r="6" fill="#5468FF"/>
+  <circle cx="310" cy="{{Y3}}" r="6" fill="#5468FF"/>
+
+  <!-- Value labels above points -->
+  <text x="120" y="{{Y1_LABEL}}" text-anchor="middle" font-size="11" font-weight="700" fill="#003DFF">${{REV1}}</text>
+  <text x="215" y="{{Y2_LABEL}}" text-anchor="middle" font-size="11" font-weight="700" fill="#003DFF">${{REV2}}</text>
+  <text x="310" y="{{Y3_LABEL}}" text-anchor="middle" font-size="11" font-weight="700" fill="#003DFF">${{REV3}}</text>
+
+  <!-- CAGR annotation -->
+  <text x="380" y="{{Y3}}" font-size="12" font-weight="700" fill="#059669">{{CAGR}}% CAGR ↗</text>
+</svg>
+```
+**Y-coordinate calculation**: `Y = 160 - ((value / max_value) * 140)`. Y1_LABEL = Y1 - 12.
+
+**2. Multi-Metric Indexed Chart** (Chapter: The Opportunity):
+Shows Revenue vs E-commerce vs Net Income indexed to Year 1 = 100.
+```html
+<svg viewBox="0 0 420 220" class="indexed-chart">
+  <!-- Three trend lines -->
+  <polyline points="{{REVENUE_POINTS}}" fill="none" stroke="#5468FF" stroke-width="2.5"/>
+  <polyline points="{{ECOM_POINTS}}" fill="none" stroke="#003DFF" stroke-width="2.5"/>
+  <polyline points="{{INCOME_POINTS}}" fill="none" stroke="#21243D" stroke-width="2.5" stroke-dasharray="6,3"/>
+
+  <!-- Legend -->
+  <circle cx="60" cy="200" r="5" fill="#5468FF"/><text x="70" y="204" font-size="10" fill="#21243D">Revenue</text>
+  <circle cx="140" cy="200" r="5" fill="#003DFF"/><text x="150" y="204" font-size="10" fill="#21243D">E-commerce</text>
+  <circle cx="230" cy="200" r="5" fill="#21243D"/><text x="240" y="204" font-size="10" fill="#21243D">Net Income</text>
+</svg>
+```
+
+**3. Technology Investment Bar Chart** (Chapter: Strategic Context):
+```html
+<svg viewBox="0 0 400 180" class="capex-chart">
+  <!-- Bars for each year -->
+  <rect x="60" y="{{BAR1_Y}}" width="80" height="{{BAR1_H}}" fill="#5468FF" rx="4"/>
+  <rect x="160" y="{{BAR2_Y}}" width="80" height="{{BAR2_H}}" fill="#003DFF" rx="4"/>
+  <rect x="260" y="{{BAR3_Y}}" width="80" height="{{BAR3_H}}" fill="#21243D" rx="4"/>
+
+  <!-- Value labels on bars -->
+  <text x="100" y="{{BAR1_LABEL}}" text-anchor="middle" font-size="13" font-weight="700" fill="white">${{CAPEX1}}</text>
+  <text x="200" y="{{BAR2_LABEL}}" text-anchor="middle" font-size="13" font-weight="700" fill="white">${{CAPEX2}}</text>
+  <text x="300" y="{{BAR3_LABEL}}" text-anchor="middle" font-size="13" font-weight="700" fill="white">${{CAPEX3}}</text>
+
+  <!-- Year labels -->
+  <text x="100" y="170" text-anchor="middle" font-size="12" font-weight="600" fill="#21243D">FY{{YEAR1}}</text>
+  <text x="200" y="170" text-anchor="middle" font-size="12" font-weight="600" fill="#21243D">FY{{YEAR2}}</text>
+  <text x="300" y="170" text-anchor="middle" font-size="12" font-weight="600" fill="#21243D">FY{{YEAR3}}</text>
+</svg>
+```
+**Bar height calculation**: `height = (value / max_value) * 120`. `BAR_Y = 140 - height`. `BAR_LABEL = BAR_Y + (height/2) + 5`.
+
+**4. Donut chart** (competitors): Calculate `stroke-dasharray` as `(percentage / 100) * 440` for the filled arc, remainder = `440 - filled`.
+
+**5. Bar chart** (hiring): Each bar uses `<div class="bar-row">` with inline `width` percentage.
+
+**6. Revenue funnel**: Tier labels with actual dollar values from `08-financial-profile.md`. MUST use 3-tier design with ≥100px bottom width.
+
+**Private Company Chart Handling**:
+For private companies with estimated data, add visual confidence indicator:
+- Add `[EST]` suffix to values: `$227M [EST]`
+- Use dashed lines: `stroke-dasharray="8,4"` for estimated data
+- Add footer note: `<text x="200" y="195" font-size="9" fill="#9CA3AF">* Estimates from industry sources — see bibliography</text>`
 
 **Screenshot Embedding**: Every finding spread MUST reference `screenshots/{nn}-{slug}.png` via `<img src="screenshots/...">`. The CSS includes `onerror` fallback styling. If a screenshot file is missing, the finding is INCOMPLETE.
 
