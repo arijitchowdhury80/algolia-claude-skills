@@ -1,11 +1,35 @@
 ---
 name: algolia-audit-factcheck
-description: Fact-check and validate the outputs of an Algolia Search Audit. Verifies all claims across 7 dimensions (cross-file consistency, math, reference data, API accuracy, citations, quotes, browser observations), produces a scored confidence report, a machine-readable correction manifest, and a methodology feedback file. Uses team mode for parallel verification. Run after /algolia-search-audit to validate before sharing deliverables.
+description: Fact-check and validate Algolia Search Audit outputs across 7 dimensions. Run after /algolia-search-audit.
 ---
 
 # Algolia Audit Fact-Check (v1.0)
 
 Validate every factual claim across all deliverables produced by `/algolia-search-audit`. Catches cross-file inconsistencies, math errors, stale API data, broken citations, unverifiable quotes, and scratchpad-to-deliverable drift. Produces 3 output files: a human-readable confidence report, a machine-readable correction manifest, and a methodology feedback file for continuous skill improvement.
+
+## CRITICAL: Validation Priority Order (MANDATORY)
+
+> **External verification is 90% of this job. Cross-file consistency is 10%.**
+
+The fact-check MUST follow this priority order — no exceptions:
+
+1. **Validate the information itself (90% of the job)**:
+   - **Follow every bibliography link** in the book, report, scratchpad, and all deliverables. WebFetch each URL. Verify the specific claim attributed to that source actually exists on that page.
+   - **Re-call MCP APIs** (SimilarWeb, BuiltWith, Yahoo Finance) to independently verify traffic, tech stack, and financial data. Compare fresh API values to audit claims.
+   - **Verify every quote** by fetching the source URL and confirming the exact quote text appears there.
+   - **Verify every case study** link opens (not 404/hallucinated) AND is relevant to the prospect's business (e.g., a retailer audit should cite retail case studies, not media companies).
+   - **Verify financials** are correct (revenue, margins, ROI math).
+   - **Verify hiring claims** (job postings still exist, role titles match).
+   - **Verify competitor data** independently via SimilarWeb API calls for each competitor.
+   - **Check business relevance** of examples: case studies, industry stats, and benchmarks must match the prospect's vertical.
+
+2. **Validate what made it to the deliverables (10% of the job)**:
+   - Cross-file consistency: scratchpad values match deliverable values.
+   - No hallucinated data that bypassed scratchpad ground truth.
+   - No context compaction drift (values changed during long sessions).
+   - Math/scoring arithmetic is correct.
+
+**The default tier is now `full`**, not `quick`. Quick tier is only for rapid pre-share sanity checks — it does NOT constitute a real fact-check. A fact-check without external verification is not a fact-check.
 
 ## Input
 
@@ -14,8 +38,15 @@ Accept a path to an audit directory as `$ARGUMENTS` (e.g., `costco-v2/`, `therea
 If no path is provided, look for the most recently modified `*-audit-workspace/` directory in the current working directory. If none found, ask the user.
 
 Optionally the user may specify:
-- **Tier**: `quick` (default), `standard`, or `full` — controls depth of external verification
+- **Tier**: `full` (default), `standard`, or `quick` — controls depth of external verification. Full is the default because external validation is the primary job.
 - **Focus**: Specific dimension number(s) to run (e.g., `--dim 1,4` to run only cross-file consistency and API accuracy)
+
+## Prerequisites
+
+For parallel agent execution (Team Mode):
+- Install `claude-sneakpeek` to unlock Agent Teams tools: `npx @realmikekelly/claude-sneakpeek quick --name claudesp`
+- Run via `claudesp` (not `claude` or VS Code extension)
+- Teammates inherit the lead's permissions at spawn time
 
 ## Execution Tiers
 
@@ -188,10 +219,27 @@ Read `memory/search-audit-impact-map.md` (the SAIM reference) and verify every c
 
 Spawn with `subagent_type: general-purpose`, `name: "api-verifier"`.
 
-**Quick tier**: Read-only. Cross-reference scratchpad values against claim registry. Check that API endpoint names match expected sources (e.g., traffic data should cite SimilarWeb, tech stack should cite BuiltWith). Flag any data point with no clear API source attribution.
+##### CRITICAL: Parameter Matching (MANDATORY)
+
+**Before making ANY API re-call, you MUST first read the audit's scratchpad file (`03-traffic-data.md`) to determine:**
+1. **Which data sources were used** — SimilarWeb, Semrush, Grips Intelligence, or a mix. If the scratchpad cites Semrush for a metric, you verify against Semrush (or flag as "different source" if you can only call SimilarWeb). You do NOT compare a Semrush value against a SimilarWeb re-call and call it a discrepancy.
+2. **Which `web_source` parameter was used** — Look for `WEB_SOURCE:` at the top of the scratchpad. If not recorded, check the actual values: desktop-only numbers are typically higher for session duration and pages/visit. If ambiguous, re-call BOTH `web_source: "desktop"` and `web_source: "total"` and report which one matches the audit values.
+3. **Which `country` parameter was used** — Look for `"us"` vs `"ww"`. Re-call with the SAME country parameter.
+4. **Which time period was used** — Match the exact `start_date` and `end_date` from the scratchpad.
+
+**The principle is absolute: you must replicate the audit's exact query before you can call something a discrepancy.** If you use different parameters, you're comparing apples to oranges, and the "discrepancy" is YOUR error, not the audit's.
+
+**If the scratchpad mixed sources** (e.g., bounce rate from SimilarWeb but session duration from Semrush), flag that as a **methodology finding** — the audit skill mixed data sources — but do NOT mark each individual value as `[DISC]` just because it doesn't match a different source's number.
+
+**If the scratchpad doesn't record its parameters** (no `WEB_SOURCE:` line, no explicit API parameters), flag that as a **methodology finding** — the audit skill failed to record its query parameters — and note that re-verification is ambiguous. Then re-call with BOTH `"desktop"` and `"total"` and report which one matches.
+
+##### Verification Steps
+
+**Quick tier**: Read-only. Cross-reference scratchpad values against claim registry. Check that API endpoint names match expected sources (e.g., traffic data should cite SimilarWeb, tech stack should cite BuiltWith). Flag any data point with no clear API source attribution. **Flag if scratchpad mixes multiple data sources for the same category** (e.g., SimilarWeb for bounce rate but Semrush for session duration).
 
 **Standard tier** (in addition to Quick):
-- Re-call SimilarWeb `get-websites-traffic-and-engagement` for the prospect domain
+- Read `03-traffic-data.md` to identify exact sources and parameters used
+- Re-call SimilarWeb `get-websites-traffic-and-engagement` with the SAME `web_source`, `country`, and date range as the audit
 - Re-call SimilarWeb `get-websites-demographics-agg` for the prospect domain
 - Re-call BuiltWith `domain-lookup` for the prospect domain
 - Compare fresh values to audit values:
@@ -199,9 +247,10 @@ Spawn with `subagent_type: general-purpose`, `name: "api-verifier"`.
   - If drift 15-30% → `[STALE]` with drift %
   - If drift >30% → `[DISC]` — data may be wrong or significantly outdated
   - If key technology removed/added since audit → `[STALE]` with note
+- **If a value came from a non-MCP source** (Semrush, Grips, etc.), WebFetch that source URL and compare. If the source is paywalled/inaccessible, mark as `[UNVF]` with note "source not accessible for re-verification", NOT as `[DISC]`.
 
 **Full tier** (in addition to Standard):
-- Re-call SimilarWeb for each competitor (traffic-and-engagement)
+- Re-call SimilarWeb for each competitor (traffic-and-engagement) — use the SAME `web_source` as the audit
 - Re-call BuiltWith `domain-lookup` for each competitor
 - Verify competitor search provider assignments still match
 
@@ -368,7 +417,25 @@ Dimension Score = max(0, Base Score + Penalties)
 
 ## Output
 
-The fact-check produces THREE files in the audit directory:
+The fact-check produces **FOUR files** — three reports in the audit directory PLUS a structured verification data file in a `factcheck/` subdirectory.
+
+### Output 0 (MANDATORY): `factcheck/verification-data.md`
+
+**This file is created FIRST, before the three report files.** It persists all raw externally-verified data so the audit skill can consume it and self-correct.
+
+**Location**: Always create a `factcheck/` subdirectory under the prospect's parent audit directory. This is the ONLY persistent artifact that crosses the boundary between fact-check skill and audit skill.
+
+**Purpose**: When the user feeds this file to the audit skill (e.g., "here are the fact-check results, fix your deliverables"), the audit skill must:
+1. Read this verification data
+2. Find each discrepant claim in its own deliverables
+3. Compare its value to the verified value
+4. Self-correct using the verified data as ground truth
+
+**Format**: Structured markdown with sections for each data category (traffic, tech stack, case studies, quotes, market data, dead URLs, scoring). Each section contains tables with columns: `Audit Value | Verified Value | Source`. Includes a ROOT CAUSE ANALYSIS section identifying systemic patterns (not just individual errors).
+
+**Critical design principle**: This file provides the VERIFIED DATA, not the corrections. The audit skill must figure out WHERE in its own files the wrong data lives and HOW to fix it. We teach it to fish, not give it the fish.
+
+The fact-check also produces THREE report files in the audit directory:
 
 ### Output 1: `{company}-factcheck-report.md`
 
@@ -647,7 +714,6 @@ TEAM LEAD (Coordinator — this conversation)
 Task tool:
   subagent_type: general-purpose
   name: "claim-registry-builder"
-  mode: bypassPermissions
   prompt: [Phase 1 instructions above, with paths to all files]
 ```
 Wait for Agent 1 to complete and return claim-registry.md + dim-1-2-3-results.md.
@@ -717,8 +783,8 @@ Next audit is more accurate → factcheck scores improve over time
 
 - **Always verify before claiming** — Read actual files. Never assume data from compaction summaries is correct.
 - **Never fabricate verification results** — If a data point can't be checked at the selected tier, mark it `[UNVF]`, not `[PASS]`.
-- **Quick tier is the default** — It catches the highest-impact issues (consistency, math, references) with zero external calls.
-- **Standard tier is recommended for final pre-share validation** — Adds API freshness checks and source URL verification.
-- **Full tier is for post-mortem analysis** — When accuracy is critical or debugging a known-bad audit.
+- **Full tier is the default** — External verification (MCP API re-calls, WebFetch of every source URL, quote verification) is the PRIMARY job of a fact-check. A fact-check without external verification is not a fact-check.
+- **Standard tier is for time-constrained checks** — Verifies prospect APIs + samples source URLs, but skips competitor re-verification and browser re-tests.
+- **Quick tier is ONLY for rapid pre-share sanity checks** — Read-only, zero external calls. Catches consistency and math errors but does NOT validate the information itself. This is 10% of the job at best.
 - **The correction manifest is the most actionable output** — It tells you exactly what to fix, where, and what the correct value is.
 - **The skill feedback file accumulates value over multiple audits** — Run fact-checks on 2-3 audits and patterns emerge that reveal systemic SKILL.md weaknesses.

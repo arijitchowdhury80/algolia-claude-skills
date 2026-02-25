@@ -118,7 +118,7 @@ When running the full audit (no `--phase` flag) or `--phase research`, use agent
 | Agent | Steps | Tools | Output |
 |-------|-------|-------|--------|
 | Agent A | Step 1: Company context + financials | Yahoo Finance MCP, BuiltWith `keywords-api`, WebSearch | `01-company-context.md` |
-| Agent B | Step 2: Tech stack deep dive | BuiltWith MCP (6 endpoints) | `02-tech-stack.md` |
+| Agent B | Step 2: Tech stack deep dive | BuiltWith MCP (6 endpoints) + SimilarWeb `get-website-content-technologies-agg` | `02-tech-stack.md` |
 | Agent C | Step 3: Traffic & engagement | SimilarWeb MCP (11 endpoints) | `03-traffic-data.md` |
 | Agent D | Step 4: Competitor identification | SimilarWeb MCP (2 endpoints) | `04-competitors.md` |
 
@@ -270,6 +270,48 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
    - **Parse "added" technologies in last 6 months** → if search competitor added recently, flag as ⚠️ NEGATIVE SIGNAL
    - Match any detected vendor to displacement quotes in `buyer-persona-reference.md` Section 3
    - Fallback: If BuiltWith credits exhausted, use SimilarWeb `get-website-content-technologies-agg`
+
+   **⛔ MANDATORY — Search Vendor Cross-Check (SimilarWeb Technologies API)**:
+   In ADDITION to BuiltWith, you MUST call SimilarWeb `get-website-content-technologies-agg` for the prospect domain. BuiltWith may return empty (CAPTCHA-blocked, credit-exhausted, or miscategorized). SimilarWeb Technologies is the authoritative fallback.
+
+   Filter results for search-related technologies. If ANY enterprise search platform is detected:
+   - **Constructor, Constructor.io** → Direct Algolia competitor
+   - **Algolia** → Confirm they're not already a customer (abort audit if so)
+   - **Coveo, Coveo Cloud** → Direct competitor
+   - **Bloomreach Discovery, Bloomreach Search** → Direct competitor
+   - **Lucidworks, Lucidworks Fusion** → Direct competitor
+   - **SearchSpring, Searchspring** → Direct competitor
+   - **Klevu, Nosto, Attraqt, Hawksearch** → Competitors
+
+   Then record in `02-tech-stack.md`:
+   ```
+   ## ⚠️ EXISTING SEARCH VENDOR DETECTED
+   Vendor: {name}
+   Status: INSTALLED since {first_seen_date}
+   Source: SimilarWeb Technologies API (verified {today's date})
+   ```
+
+   And adjust the audit narrative:
+   - If Algolia detected → abort audit (existing customer)
+   - If competitor detected → reframe ALL deliverables from "greenfield opportunity" to "competitive displacement"
+   - Record vendor name, installation date, and any co-existing search technologies
+
+   **⚠️ CRITICAL: "Installed" ≠ "Active"**
+   SimilarWeb Technologies detects JavaScript tags on the page. A tag being present does NOT mean the vendor is actively powering search. Vendors may be in evaluation/POC mode, partially deployed, or deprecated but not yet removed.
+
+   When a search vendor tag is detected, record it as `Status: TAG DETECTED (unverified)` in `02-tech-stack.md`. The tag will be VERIFIED or REFUTED in Phase 2 (Browser Testing) via network request inspection:
+   - During Phase 2 search testing, monitor network requests for the vendor's API domain:
+     - Constructor.io → `cnstrc.com` or `constructor.io`
+     - Algolia → `algolia.net` or `algolianet.com`
+     - BloomReach → `brsrvr.com` or `bloomreach.com`
+     - Coveo → `coveo.com` or `platform.cloud.coveo.com`
+     - Klevu → `klevu.com`
+   - If API calls are found → `Status: ACTIVE (confirmed via network requests)`
+   - If ZERO API calls → `Status: TAG ONLY (not powering search — likely evaluation/POC)`
+   - Update `02-tech-stack.md` after Phase 2 with verified status
+
+   **Why this exists**: Uncommon Goods audit (2026-02-24) — SimilarWeb showed Constructor.io tag installed since July 2025, but live network request inspection revealed ZERO Constructor API calls. BloomReach (`brsrvr.com`) was the actual active search provider. Constructor was in evaluation/POC mode. Without this verification, an AE would have either (a) skipped a valid prospect thinking a competitor was entrenched, or (b) entered a meeting with wrong competitive intelligence.
+
    - → Write to `02-tech-stack.md`
 
 3. **Traffic & Engagement Deep Dive** — Use **SimilarWeb MCP ONLY** for all traffic metrics. **DO NOT scrape or WebFetch third-party analytics sites** (Semrush, Ahrefs, SEMrush, Moz, etc.) for traffic/engagement data. These sites use different measurement methodologies than SimilarWeb, and mixing sources creates unverifiable discrepancies. All traffic, engagement, demographics, and ranking data MUST come from SimilarWeb MCP endpoints so the fact-checker can reproduce exact results with identical API calls.
@@ -287,7 +329,23 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
    - `get-pages-leading-folders-agg` — top URL folders (reveals site architecture: /search/, /product/, /category/)
    - `get-websites-landing-pages-agg` with `traffic_source: "organic"` — top organic landing pages (SEO focus)
    - Use `country: "ww"` if `"us"` errors
-   - **web_source STANDARDIZATION (MANDATORY)**: ALL SimilarWeb API calls for a single audit MUST use `web_source: "total"` (desktop + mobile). If "total" errors, fall back to "desktop" but record the fallback and add "(desktop only)" caveat to ALL traffic metrics. NEVER mix desktop and total values in the same scratchpad file. Record the parameter at the top of `03-traffic-data.md`: `WEB_SOURCE: total`
+   - **web_source STANDARDIZATION (MANDATORY)**: ALL SimilarWeb API calls for a single audit MUST use `web_source: "total"` (desktop + mobile). If "total" errors, fall back to "desktop" but record the fallback and add "(desktop only)" caveat to ALL traffic metrics. NEVER mix desktop and total values in the same scratchpad file.
+
+   **⛔ API Parameter Metadata Header (MANDATORY at top of 03-traffic-data.md)**:
+   ```markdown
+   ## API Parameters (for fact-check reproducibility)
+   - Primary Source: SimilarWeb MCP
+   - web_source: total (or "desktop" if total errored — note here)
+   - country: ww (or "us" if ww errored — note here)
+   - start_date: YYYY-MM
+   - end_date: YYYY-MM
+   - Secondary Sources: [list any non-MCP sources used, or "NONE"]
+   - Fallbacks Used: [list any parameter fallbacks, or "NONE"]
+   ```
+   ALL traffic metrics in this file MUST come from the SAME API calls with the SAME parameters. Do NOT mix desktop and total values. Do NOT blend SimilarWeb and Semrush data without clearly labeling which source each metric comes from. This metadata enables the fact-checker to reproduce exact results with identical API calls.
+
+   **Why this exists**: Uncommon Goods audit (2026-02-24) had traffic source percentages (53.52% Direct, 27.01% Organic) that couldn't be matched to any single SimilarWeb web_source + country + date combination, making fact-checking impossible.
+
    - → Write to `03-traffic-data.md`
 
 4. **Competitor Identification** — Use SimilarWeb to find top 3-5 competitors:
@@ -354,13 +412,23 @@ Create `_workspace-manifest.md` with all steps listed as `[ ] pending`. Update e
    Conservative (5% improvement) = Revenue Addressable × 0.05
    Moderate (10% improvement) = Revenue Addressable × 0.10
    ```
-   - Cite benchmarks: Lacoste +37% search revenue, Decathlon +50% search conversion
+   - Cite benchmarks: Use **vertically-relevant case studies** from the Vertical-to-Case-Study Mapping section (NOT default Lacoste/Decathlon)
    - **Guardrails**: Always show formula + inputs + sources. Label as "directional estimate." Never present as guarantee.
    - → Write to `08-financial-profile.md`
 
 10. **Trigger Event Synthesis** — Cross-reference all signals from Steps 1-9:
     - Top 3 **positive trigger events** (e.g., "Search vendor removed + hiring search engineers + digital sales +20%")
     - Any **⚠️ caution signals** (e.g., "Coveo added 4 months ago", "layoffs announced")
+
+    **⛔ Article Date Verification (MANDATORY for all news citations)**:
+    For every news article cited as a "timing signal" or "trigger event":
+    1. Extract the article publication date from the page content (not the URL, not the search snippet)
+    2. Record it next to the citation: `Source: [URL] (published [YYYY-MM-DD])`
+    3. If article is >18 months old, classify as "Historical Context" NOT "Timing Signal" or "Trigger Event"
+    4. Verify that the event described matches the timeline claimed in your deliverables (e.g., if you write "Spring 2025", confirm the article date supports this)
+
+    **Why this exists**: Uncommon Goods audit (2026-02-24) cited a Modern Retail article about catalog deprecation as a "Spring 2025" timing signal. The article was actually published in 2020 — a 5-year error that would destroy credibility with the prospect.
+
     - → Append to `06-strategic-context.md`
 
 11. **Vertical Matching** — Select best case studies for this prospect:
@@ -647,14 +715,38 @@ Open the website in the browser and systematically test:
 - Take a screenshot of the homepage with search bar visible
 - Note: Is search prominent? Icon or full bar? Position?
 
+#### Step 2a½: Search Vendor Network Verification (if vendor tag detected in Phase 1)
+If `02-tech-stack.md` contains any `Status: TAG DETECTED (unverified)` entries:
+1. Use Chrome MCP `read_network_requests` to start monitoring
+2. Perform ONE search query and submit it
+3. Check network requests for the vendor's API domain:
+   - Constructor.io → `cnstrc.com` or `constructor.io`
+   - Algolia → `algolia.net` or `algolianet.com`
+   - BloomReach → `brsrvr.com` or `bloomreach.com`
+   - Coveo → `coveo.com` or `platform.cloud.coveo.com`
+   - Klevu → `klevu.com`
+4. Also check which domain IS handling autocomplete/search (this reveals the ACTUAL provider)
+5. Update `02-tech-stack.md`:
+   - Vendor with API calls → `Status: ACTIVE (confirmed via network requests to {domain})`
+   - Vendor with NO API calls → `Status: TAG ONLY (not powering search — evaluation/POC)`
+   - Add actual provider if different: `Active Search Provider: {vendor} (via {api-domain})`
+
+**Why**: SimilarWeb detects JavaScript tags, not active API usage. Uncommon Goods had Constructor.io tag since July 2025, but BloomReach (`brsrvr.com`) was actually powering all search. This step prevents false competitive intelligence.
+
 #### Step 2b: Empty State Test
 - Click on the search bar WITHOUT typing
 - Take a screenshot
 - Note: Popular searches, trending, recent searches, or nothing?
 
 #### Step 2c: Search-As-You-Type (SAYT) Test
-- Type a broad category query letter by letter
-- Take a screenshot mid-typing (after 3-4 characters)
+- Type a broad category query letter by letter using Chrome MCP `computer` tool with `action: "type"` (NEVER use `form_input` — it sets `.value` programmatically and does NOT trigger visual rendering or SAYT events)
+- **CRITICAL — Search Bar Visibility in Screenshots**: After typing, wait 1-2 seconds for SAYT dropdown to render, then take screenshot. The typed text MUST be visible in the search input field in the screenshot. If the search bar appears empty in the screenshot despite typing:
+  1. Click the search input first to ensure focus
+  2. Use `computer` `action: "type"` with the query text (this simulates real keystrokes)
+  3. Wait 2 seconds (`computer` `action: "wait"` `duration: 2`)
+  4. Take screenshot — verify typed text is visible in the search bar
+  5. If still empty, use `javascript_tool` to check the input value: `document.querySelector('input[type="search"]').value` — if it has the value but isn't rendering, try clicking the input again and re-typing
+- Take a screenshot mid-typing (after 3-4 characters) showing BOTH the typed text in the search bar AND the SAYT dropdown
 - Note: Autocomplete speed, content (products, categories, suggestions), latency
 
 #### Step 2d: Full Search Results Test
@@ -743,6 +835,13 @@ Open the website in the browser and systematically test:
 Screenshots are the #1 audit artifact — PROOF that testing was done.
 
 > **FAILURE MODE TO AVOID**: Taking a Chrome MCP screenshot (getting imageId) but never writing to disk.
+
+> **FAILURE MODE TO AVOID — EMPTY SEARCH BAR**: Screenshots of search tests where the search input appears empty (showing placeholder text like "Search" instead of the typed query). This happens when:
+> 1. `form_input` is used instead of `computer` `type` — `form_input` sets `.value` programmatically which does NOT always trigger visual re-render or dispatch `input`/`keydown` events needed for SAYT
+> 2. Screenshot is captured before the browser renders the typed text (race condition)
+> 3. The SAYT overlay steals focus from the input field
+>
+> **FIX**: Always use `computer` tool with `action: "type"` for search queries. Always wait 1-2 seconds after typing before screenshot. Always verify the typed text is visible in the screenshot. For results pages this is less critical because the query appears in the page heading (e.g., `565 results for "purse"`), but for SAYT screenshots the typed text in the search bar IS the proof.
 
 **Capture Procedure (for EACH screenshot)**:
 
@@ -949,6 +1048,13 @@ Before generating EACH deliverable file (Phase 4 and 5a through 5f), you MUST re
 3. `Read 08-financial-profile.md` — Capture exact revenue, EBITDA, margin zone, ROI figures
 4. `Read 10-scoring-matrix.md` — Capture exact scores per area, severity distribution, overall score
 5. `Read 11-investor-intelligence.md` — Capture exact quotes with speaker names, titles, and source URLs
+
+**⛔ COPY-PASTE MANDATE (non-negotiable)**:
+- For ROI calculations: Copy-paste the EXACT revenue base, digital share %, and ROI table directly from `08-financial-profile.md`. Do NOT reconstruct financial figures from context memory. If you write "$179M" when the scratchpad says "$227M", the fact-checker WILL catch it.
+- For quotes: Copy-paste the EXACT attribution (Speaker, Title, Source Name, URL) from `11-investor-intelligence.md`. Do NOT rely on context memory for source attributions. If you write "CNBC" when the scratchpad says "Partnership Economy Podcast", the fact-checker WILL catch it.
+- For traffic data: Copy-paste the EXACT percentages from `03-traffic-data.md`. Do NOT regenerate plausible-looking numbers that sum to 100%.
+
+**Why this exists**: Uncommon Goods audit (2026-02-24) had $179M propagate through 8 data points across 3 deliverables when the actual value was $227M (27% error). The book (generated in a separate session) used the correct value. Context compaction was the root cause.
 
 **Spot-check verification after writing each deliverable**: After writing each file, grep for 3 values to confirm data fidelity:
 - Traffic: grep for the exact Paid Search % from scratchpad 03
@@ -1262,6 +1368,45 @@ The audit produces THREE deliverables, all brand-validated:
 | Irrelevant recommendations | Recommendations drive 31% of e-commerce revenue | Algolia Recommend ML models |
 | Not factoring reviews | 93% say reviews influence purchase | Algolia custom ranking with ratings |
 
+## Vertical-to-Case-Study Mapping (MANDATORY)
+
+**CRITICAL**: Do NOT default to Lacoste/Decathlon for every audit. Select case studies that match the prospect's vertical. Prospects will immediately distrust your audit if you cite a sports apparel case study for a gift marketplace.
+
+### Case Study Selection Matrix
+
+| Prospect Vertical | Primary Case Study | Secondary Case Study | Why Relevant |
+|-------------------|-------------------|---------------------|--------------|
+| **Curated Marketplace / Gift Retail** | Huckberry (+9.4% revenue) | Big W (+7% conversion) | Huckberry is a curated lifestyle marketplace with discovery-focused UX |
+| **Artisan / Handmade** | Huckberry (+9.4% revenue) | Zenni (+34% search revenue) | Curated product discovery, personalization |
+| **Home Goods / Decor** | Big W (+7% conversion) | Huckberry (+9.4% revenue) | Broad product range, visual discovery |
+| **Fashion / Apparel** | Lacoste (+37% conversion) | Gymshark (+150% mobile orders) | Luxury/fashion positioning, mobile-first |
+| **Sporting Goods** | Decathlon (+50% conversion) | Under Armour (<20ms latency) | Large SKU catalog, performance |
+| **Eyewear / Specialty Retail** | Zenni (+9% conversion, +34% search revenue) | Big W (+7% conversion) | Specialty retail with diverse SKUs |
+| **Auto Parts** | O'Reilly Auto (+performance) | Zenni (+34% search revenue) | Technical product attributes |
+| **Luxury / Premium** | Lacoste (+37% conversion) | Harry Rosen (+360% conversion) | High-value transactions, brand positioning |
+| **B2B / Industrial** | Grainger (federated search) | Staples (content discoverability) | Complex catalogs, technical search |
+| **General Retail** | Big W (+7% conversion) | Zenni (+9% conversion) | Broad applicability |
+
+### Case Study URLs (Verified 2026-02)
+
+| Company | URL | Metrics |
+|---------|-----|---------|
+| Huckberry | https://www.algolia.com/customers/huckberry | +9.4% revenue from AI Personalization |
+| Zenni | [Algolia Blog](https://www.algolia.com/blog/ecommerce/how-3-retailers-are-using-ai-powered-search-and-discovery-to-crush-their-numbers) | +9% conversion, +34% search revenue, +27% revenue/session |
+| Big W | https://www.algolia.com/customers/bigw | +7% conversion |
+| Gymshark | https://www.algolia.com/customers/gymshark-recommend | +150% mobile order rate |
+| Lacoste | https://www.algolia.com/customers/lacoste | +37% conversion rate |
+| Decathlon | https://www.algolia.com/customers/decathlon-singapore | +50% search conversion |
+
+### How to Apply
+
+1. **In Step 11 (Vertical Matching)**: Look up the prospect's vertical in the matrix above. Select the primary + secondary case studies.
+2. **In Step 9 (Financial Profile)**: Use the selected case studies as comparables, NOT the default Lacoste/Decathlon.
+3. **In the PDF Book, AE Brief, Signal Brief**: Only cite case studies from the selected set. Do NOT mix in irrelevant verticals.
+4. **Verify URLs**: Before citing, confirm the URL is live (not 404). Use the Case Study Verification Gate.
+
+**Why this exists**: The Uncommon Goods audit (2026-02-24) incorrectly used Lacoste/Decathlon case studies for an artisan gift marketplace. The book should have used Huckberry (curated lifestyle marketplace) as the primary comparable. This error undermines credibility — prospects immediately recognize when cited examples are irrelevant to their business.
+
 ## Execution Checklist Gates (MANDATORY)
 
 ### Gate 1: After Phase 1 — Verify before opening browser
@@ -1272,6 +1417,7 @@ The audit produces THREE deliverables, all brand-validated:
 - [ ] BuiltWith `recommendations-api` called → tech gaps logged
 - [ ] BuiltWith `financial-api` called → revenue estimates logged
 - [ ] BuiltWith `trust-api` called → trust score logged
+- [ ] **SimilarWeb `get-website-content-technologies-agg` called → search vendor check (Constructor, Algolia, Coveo, Bloomreach, etc.)**
 - [ ] SimilarWeb traffic called (11 endpoints): traffic-and-engagement, traffic-sources, geography, demographics, keywords, audience-interests, website-rank, referrals, popular-pages, leading-folders, landing-pages
 - [ ] SimilarWeb competitors called (2 endpoints): similar-sites, keywords-competitors → top 3-5 identified
 - [ ] BuiltWith `domain-lookup` called for EACH competitor → search providers detected
@@ -1512,6 +1658,36 @@ echo "========================================"
 
 **If checks 1, 2, or 3 FAIL**: Do NOT mark audit as complete. Fix the issues first.
 
+### Gate 6: Statistic Source Verification (BLOCKING — prevents fabricated/stale data)
+
+> **⛔ THIS GATE IS NON-NEGOTIABLE.** Every quantitative statistic cited with an external source URL must be verified at source.
+
+**6.1 External Statistic Verification**:
+For every quantitative statistic cited with an external source URL across ALL deliverables:
+1. WebFetch the URL
+2. Search the page text for the exact number/percentage
+3. If NOT found on the page: either find the real source URL or REMOVE the stat entirely
+4. NEVER cite a statistic with a URL where the stat doesn't appear
+
+**6.2 Algolia Corporate Stats Freshness**:
+For Algolia corporate statistics, always verify against the latest from algolia.com:
+- Customer count: Check `algolia.com/customers/` for current number (currently 18,000+ as of 2026-02)
+- Searches/year: Use 1.75T (or check `algolia.com/about/` for updates)
+- Records indexed: Use 30 billion (or check for updates)
+
+**6.3 Industry Benchmark Verification**:
+For any Baymard, Forrester, or industry statistic:
+- Verify the stat appears on the cited page
+- Record the publication date of the source
+- If source is paywalled: note `[PAYWALLED - cannot verify exact figure]` in bibliography
+
+**Why this exists**: Uncommon Goods audit (2026-02-24) cited "77% of consumers prefer brands with ESG commitments" from a Sendoso page — the number does not appear anywhere on that page. Also used "10,000+" for Algolia customer count when the current figure is 18,000+.
+
+Checklist:
+- [ ] All cited percentages/numbers verified at source URL
+- [ ] Algolia corporate stats match current published figures
+- [ ] No fabricated statistics (numbers that don't appear on cited page)
+
 ## Notes
 
 - Be objective — note both strengths and weaknesses
@@ -1529,6 +1705,8 @@ echo "========================================"
 - **Post-compaction data integrity**: After any context compaction mid-audit, treat ALL numerical data in memory as UNVERIFIED. Always re-read scratchpad files before using any data point. The most dangerous hallucination pattern is plausible regeneration — where the model creates internally consistent but factually wrong numbers (e.g., traffic sources that sum to 100% but with wrong individual values).
 - **Competitor table scrambling**: LLMs are especially bad at preserving column-row associations in competitor tables after context compaction. The model remembers "4 competitors had bounce rates in the 28-51% range" but assigns values to the wrong company names. ALWAYS copy competitor tables from scratchpad 04, never regenerate.
 - **Browser observations are exact**: When the browser shows "10,000+ New Items", record exactly "10,000+" — do not round up, generalize, or inflate to "30,000+". [OBSERVED] values are verbatim.
+- **Browser observation staleness**: E-commerce sites update search functionality frequently. Add this footer to ALL deliverables (book, AE brief, signal brief): "Search experience observations captured on [AUDIT_DATE]. E-commerce sites may update search functionality at any time. We recommend re-testing if more than 7 days have elapsed before prospect presentation." During browser testing, note ALL product card badges and labels visible (e.g., "Better Hurry", "LOW STOCK", "NEW!", "GIFT SET", "CUSTOMIZABLE") — these are merchandising intelligence signals, not noise. Claiming "zero analytics signals" when badges exist is an overstatement.
+- **Quote attribution chain**: When including ANY CEO/executive quote in a deliverable, ALWAYS re-read `11-investor-intelligence.md` first. For each quote, copy the EXACT attribution: Speaker Name, Title, Source Name, URL. Format: `"Quote text" — Speaker Name, Title (Source Name, Date)`. NEVER rely on context memory for source attributions. The Uncommon Goods audit attributed a Partnership Economy Podcast quote to "CNBC" across 3 deliverables because the source was reconstructed from memory instead of re-read from scratchpad.
 
 ## Visual Standards (v2.8 — Enhanced Visuals)
 
@@ -1802,7 +1980,7 @@ The audit MUST use these MCP servers. Always prefer MCP data over WebSearch.
 | `social-api` | Social profile URLs (LinkedIn, Twitter, Facebook) |
 | `trust-api` | Domain trust score, domain age |
 | `keywords-api` | Meta keywords, page titles (SEO focus) |
-| Fallback: SimilarWeb `get-website-content-technologies-agg` | If BuiltWith credits exhausted |
+| **⛔ MANDATORY**: SimilarWeb `get-website-content-technologies-agg` | Search vendor cross-check (Constructor, Algolia, Coveo, etc.) — NOT a fallback, call EVERY TIME |
 
 ### 2. SimilarWeb MCP (Phase 1 steps 3, 4, 6)
 | Endpoint | Usage |
@@ -1820,7 +1998,7 @@ The audit MUST use these MCP servers. Always prefer MCP data over WebSearch.
 | `get-websites-landing-pages-agg` | Top organic/paid landing pages |
 | `get-websites-similar-sites-agg` | Competitor identification |
 | `get-websites-keywords-competitors-agg` | Keyword competitors |
-| `get-website-content-technologies-agg` | Fallback for BuiltWith |
+| `get-website-content-technologies-agg` | **⛔ MANDATORY**: Search vendor detection (Step 2) — NOT optional |
 | Use `country: "ww"` if `"us"` errors | |
 
 ### 3. Yahoo Finance MCP (Phase 1 steps 1, 9, 12)

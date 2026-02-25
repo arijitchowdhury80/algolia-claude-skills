@@ -1,6 +1,6 @@
 # Algolia Skills for Claude Code
 
-15 slash commands for the Algolia sales and marketing team — **13 brand content skills**, an **automated search audit** skill, and an **audit fact-check** skill. Every content skill references official Algolia brand guidelines. The search audit skill runs live browser-based tests on prospect websites and produces 6 deliverables per audit.
+15 slash commands for the Algolia sales and marketing team — **13 brand content skills**, an **automated search audit** skill, and an **audit fact-check** skill. Every content skill references official Algolia brand guidelines. The search audit skill runs live browser-based tests on prospect websites and produces 7 deliverables per audit (including a print-ready PDF book).
 
 ---
 
@@ -21,7 +21,7 @@ claude
 # Type /algolia- to see all 15 commands
 ```
 
-The 13 brand skills work immediately. For the search audit + fact-check skills, you'll also need to [set up 3 MCP servers](#mcp-server-setup-for-search-audit).
+The 13 brand skills work immediately. For the search audit + fact-check skills, you'll also need to [set up 4 MCP servers](#mcp-server-setup-for-search-audit).
 
 ---
 
@@ -129,16 +129,17 @@ cp CLAUDE-template.md ~/.claude/CLAUDE.md
 
 ## MCP Server Setup (for Search Audit)
 
-The 13 brand content skills work immediately with zero setup. The search audit and fact-check skills need 3 MCP servers connected. Here's exactly how to set them up.
+The 13 brand content skills work immediately with zero setup. The search audit and fact-check skills need 4 MCP servers connected. Here's exactly how to set them up.
 
 ### Step 1: Get Your API Keys
 
-You need API keys for two services:
+You need API keys for three services:
 
 | Service | Where to get the key | Cost |
 |---------|---------------------|------|
 | **SimilarWeb** | [similarweb.com](https://www.similarweb.com/) → Account Settings → API (or ask your Algolia team lead for the shared key) | Paid API |
 | **BuiltWith** | [api.builtwith.com](https://api.builtwith.com/) → Sign up → API Keys | Free tier available |
+| **Yahoo Finance** | No API key needed — uses the `yahoo-finance-mcp` npm package | Free |
 
 Chrome MCP doesn't need an API key — just a browser extension.
 
@@ -193,16 +194,36 @@ claude
 # Type: "What technologies does shopify.com use?"
 ```
 
-### Step 5: Verify All Servers
+### Step 5: Install Yahoo Finance MCP (Financial Data)
+
+Yahoo Finance MCP provides revenue, margins, stock data, and financial statements for public companies.
+
+```bash
+# 1. Install the MCP server globally:
+npm install -g yahoo-finance-mcp
+
+# 2. Add it to Claude Code:
+claude mcp add --transport stdio --scope user \
+  yahoo-finance -- npx yahoo-finance-mcp
+
+# Verify:
+claude
+# Type: "Get financial data for COST"
+```
+
+**Note**: For private companies, the audit skill uses industry benchmarks and web research instead.
+
+### Step 7: Verify All Servers
 
 ```bash
 # List all configured MCP servers:
 claude mcp list
 
 # You should see:
-#   Chrome        (sse, user)
+#   Chrome         (sse, user)
 #   similarweb-mcp (sse, user)
-#   builtwith     (sse, user)
+#   builtwith      (sse, user)
+#   yahoo-finance  (stdio, user)
 
 # Or inside Claude Code, type:
 /mcp
@@ -211,7 +232,7 @@ claude mcp list
 
 ### All-in-One Copy-Paste Setup
 
-If you have your API keys ready, run all three commands at once:
+If you have your API keys ready, run all four commands at once:
 
 ```bash
 # Replace the two YOUR_*_KEY values with your actual keys:
@@ -226,6 +247,10 @@ claude mcp add --transport sse --scope user \
 claude mcp add --transport sse --scope user \
   --header "Authorization: Bearer YOUR_BUILTWITH_API_KEY" \
   builtwith https://mcp.builtwith.com/sse
+
+npm install -g yahoo-finance-mcp && \
+claude mcp add --transport stdio --scope user \
+  yahoo-finance -- npx yahoo-finance-mcp
 ```
 
 These commands store the config in `~/.claude.json` with `user` scope, making the servers available in **every** project — terminal, VS Code, and any Claude Code environment.
@@ -234,13 +259,14 @@ These commands store the config in `~/.claude.json` with `user` scope, making th
 
 Antigravity has its own MCP configuration UI. The server URLs and API keys are the same:
 
-| Server | URL | Auth Header |
-|--------|-----|-------------|
-| Chrome | `http://127.0.0.1:21405/mcp/sse` | None |
-| SimilarWeb | `https://mcp.similarweb.com/sse` | `Authorization: Bearer YOUR_KEY` |
-| BuiltWith | `https://mcp.builtwith.com/sse` | `Authorization: Bearer YOUR_KEY` |
+| Server | Transport | URL/Command | Auth Header |
+|--------|-----------|-------------|-------------|
+| Chrome | SSE | `http://127.0.0.1:21405/mcp/sse` | None |
+| SimilarWeb | SSE | `https://mcp.similarweb.com/sse` | `Authorization: Bearer YOUR_KEY` |
+| BuiltWith | SSE | `https://mcp.builtwith.com/sse` | `Authorization: Bearer YOUR_KEY` |
+| Yahoo Finance | stdio | `npx yahoo-finance-mcp` | None |
 
-Add these through Antigravity's **Settings → MCP/Tools** configuration panel using the SSE transport type.
+Add these through Antigravity's **Settings → MCP/Tools** configuration panel.
 
 ### Troubleshooting
 
@@ -276,7 +302,7 @@ Add these through Antigravity's **Settings → MCP/Tools** configuration panel u
 | `/algolia-ui-copy` | Write UI microcopy (tooltips, errors, empty states, buttons) |
 | `/algolia-boilerplate` | Get the right pre-approved company description for any context |
 
-### Search Audit Skill (v2.7)
+### Search Audit Skill (v3.0)
 
 | Command | What it does |
 |---------|-------------|
@@ -284,17 +310,18 @@ Add these through Antigravity's **Settings → MCP/Tools** configuration panel u
 
 The search audit automates a 5-phase process:
 
-1. **Pre-Audit Research (14 steps)** — Company context + financials + executives, tech stack deep dive (BuiltWith + relationships), traffic deep dive (6 SimilarWeb calls), competitor identification, vertical test query generation, competitor search analysis (BuiltWith per competitor — golden angle if competitor uses Algolia), strategic angle mining + negative signals, hiring signal detection, financial context + ROI estimate, trigger event synthesis, investor intelligence (10-K/earnings call analysis), deep hiring analysis (careers page visit, role counts, JD analysis), ICP-to-priority mapping
-2. **Browser Testing (20 steps)** — 12 core search tests + 8 Algolia value-prop tests (NLP, dynamic facets, popular searches, personalization, recommendations, merchandising rules, analytics visibility)
+1. **Pre-Audit Research (14 steps)** — Company context + financials + executives, tech stack deep dive (BuiltWith + SimilarWeb Technologies API cross-check), traffic deep dive (14 SimilarWeb endpoints), competitor identification, vertical test query generation, competitor search analysis, strategic angle mining + negative signals, hiring signal detection, financial context + ROI estimate (Yahoo Finance for public companies), trigger event synthesis, investor intelligence (10-K/earnings call analysis), deep hiring analysis (careers page visit, role counts, JD analysis), ICP-to-priority mapping, **vertical-to-case-study matching**
+2. **Browser Testing (20 steps)** — 12 core search tests + 8 Algolia value-prop tests (NLP, dynamic facets, popular searches, personalization, recommendations, merchandising rules, analytics visibility). **Search vendor verification** (TAG DETECTED vs ACTIVE via network request inspection)
 3. **Analysis** — Severity scoring across 10 challenge areas (6 core + 4 Algolia value-prop)
 4. **Report** — Full markdown audit report with strategic intelligence, investor quotes, competitor landscape, and deep hiring analysis
-5. **Deliverables (6 files, all brand-validated, all source-hyperlinked)**:
+5. **Deliverables (7 files, all brand-validated, all source-hyperlinked)**:
    - Full audit report (markdown)
    - Landing page (HTML with tabbed dual-view)
-   - **Algolia-branded presentation deck** (~30-33 slides) — **v2.8: Every source citation is a clickable hyperlink** for instant verification. Full brand standards (Nebula Blue #003DFF, Space Gray #21243D, Algolia Purple #5468FF), speaker notes (60-90 sec/slide), Google Slides-ready layouts
+   - **Algolia-branded presentation deck** (~30-33 slides) — Every source citation is a clickable hyperlink. Full brand standards (Nebula Blue #003DFF, Space Gray #21243D, Algolia Purple #5468FF), speaker notes (60-90 sec/slide), Google Slides-ready layouts
    - Landing page content spec
    - AE Pre-Call Brief (internal, not for prospect)
    - Strategic Signal Brief (LLM-optimized 1-pager)
+   - **Print-ready PDF book** (32+ pages) — Executive-ready format with cover page, table of contents, findings with screenshots, appendices. Generated via Chrome headless.
 
 ### Audit Fact-Check Skill
 
@@ -334,7 +361,7 @@ Verifies audit output across 7 dimensions: cross-file consistency, math & logic,
 
 ## Audit Output Files
 
-Each search audit produces 6 files in the working directory:
+Each search audit produces 7 files in the working directory:
 
 | # | File | Purpose |
 |---|------|---------|
@@ -344,6 +371,7 @@ Each search audit produces 6 files in the working directory:
 | 4 | `{company}-landing-page.md` | Content spec for the landing page |
 | 5 | `{company}-ae-precall-brief.md` | Internal AE pre-call brief (not for prospect) |
 | 6 | `{company}-strategic-signal-brief.md` | 1-page LLM-optimized strategic signal brief |
+| 7 | `{company}-search-audit-book.pdf` | **Print-ready PDF book** (32+ pages) with cover, TOC, findings, appendices |
 
 Plus a `screenshots/` directory with browser screenshots from the audit.
 
@@ -395,8 +423,8 @@ Each skill is a `SKILL.md` file that Claude Code auto-discovers from `~/.claude/
 ├── algolia-landing/SKILL.md
 ├── algolia-one-pager/SKILL.md
 ├── algolia-partner/SKILL.md
-├── algolia-search-audit/            # Search audit v2.7 (uses MCP servers)
-│   ├── SKILL.md                     # 5 phases, 20 tests, 10 areas, 6 deliverables
+├── algolia-search-audit/            # Search audit v3.0 (uses MCP servers)
+│   ├── SKILL.md                     # 5 phases, 20 tests, 10 areas, 7 deliverables
 │   └── knowledge/                   # Supporting reference data
 │       ├── algolia-search-audit.md  # Full audit methodology & Bayard UX guidelines
 │       ├── search-audit-impact-map.md # SAIM: 15 optimization areas with stats
@@ -431,6 +459,7 @@ rm -rf ~/.claude/skills/algolia-*
 claude mcp remove Chrome
 claude mcp remove similarweb-mcp
 claude mcp remove builtwith
+claude mcp remove yahoo-finance
 ```
 
 ## Updating
@@ -445,6 +474,9 @@ git pull
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v3.0** | **2026-02-25** | **Vertical-to-case-study mapping** (auto-selects relevant Algolia case studies based on prospect industry). SimilarWeb Technologies API cross-check for search vendor detection. TAG DETECTED vs ACTIVE verification workflow. web_source standardization (all traffic data uses consistent parameters). Book PDF as 7th deliverable (32+ pages, print-ready). Yahoo Finance MCP for public company financials. |
+| v2.9 | 2026-02-24 | Book chapter completion gates (sub-phase verification), funnel SVG dimensions fix (3-tier design with 110px bottom). Context compaction mitigation. |
+| v2.8 | 2026-02-23 | Print-ready PDF book deliverable, 11 editorial standards for book layout, Chrome headless PDF generation, header/footer on every page. |
 | v2.7 | 2026-02-21 | Scratchpad mining philosophy, deck expanded to ~30-33 slides, presentation standards |
 | v2.6 | 2026-02-21 | Investor intelligence, source citations, McKinsey Pyramid + Cold Open deck |
 | v2.5 | 2026-02-21 | Strategic signal brief (6th deliverable), report restructured |
