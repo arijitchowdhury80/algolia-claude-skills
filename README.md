@@ -1,5 +1,28 @@
 # Algolia Skills for Claude Code
 
+---
+
+## 🔖 Also included: Project Governance (for any developer, any project)
+
+**`/project-governance`** is a standalone Claude Code skill that any developer can use — no Algolia account needed.
+
+It solves the two biggest pain points with AI-assisted development: **Claude forgetting everything between sessions** and **agents shipping untested code**.
+
+```bash
+# Install just this skill (no Algolia setup needed):
+chmod +x install-governance.sh && ./install-governance.sh
+
+# Then in any project:
+/project-governance   ← run once to bootstrap
+/get-up-to-speed      ← run every session start
+```
+
+What you get: three bounded state files (STATUS.md, CHECKPOINT.md, SESSION.md), a git post-commit hook, a 13-minute auto-persist cron, five project slash commands, a test-plan gate that blocks coding before tests are written, and a canonical directory structure. **Total context cost at session start: ~80 lines.**
+
+→ **[Full documentation](skills/project-governance/README.md)**
+
+---
+
 15 slash commands for the Algolia sales and marketing team — **13 brand content skills**, an **automated search audit** skill, and an **audit fact-check** skill. Every content skill references official Algolia brand guidelines. The search audit skill runs live browser-based tests on prospect websites and produces 7 deliverables per audit (including a print-ready PDF book).
 
 ---
