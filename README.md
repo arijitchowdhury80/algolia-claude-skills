@@ -14,10 +14,10 @@ chmod +x install-governance.sh && ./install-governance.sh
 
 # Then in any project:
 /project-governance   ← run once to bootstrap
-/get-up-to-speed      ← run every session start
+/wake-up              ← run every session start
 ```
 
-What you get: three bounded state files (STATUS.md, CHECKPOINT.md, SESSION.md), a git post-commit hook, a 13-minute auto-persist cron, five project slash commands, a test-plan gate that blocks coding before tests are written, and a canonical directory structure. **Total context cost at session start: ~80 lines.**
+What you get: two disk-only state files (gitignored — **never triggers Vercel or CI/CD**), a 13-minute cron that writes to disk only, three project slash commands, a test-plan gate that blocks coding before tests are written, and a canonical directory structure. **Session start context cost: ~35 lines.**
 
 → **[Full documentation](skills/project-governance/README.md)**
 
