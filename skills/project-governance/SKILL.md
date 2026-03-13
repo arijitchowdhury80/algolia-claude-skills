@@ -27,31 +27,85 @@ Three tiers of information, each with strict size limits:
 
 ---
 
-## What This Skill Creates
+## Canonical Project Directory Structure
+
+Every project bootstrapped with this skill gets this exact layout:
 
 ```
-PROJECT_ROOT/
-├── CLAUDE.md                          ← Project constitution (stable, in git)
-├── STATUS.md                          ← 30-line current snapshot (overwritten, not appended)
-├── CHECKPOINT.md                      ← 50-line active task state (overwritten per step)
-├── SESSION.md                         ← Current session log (archived + reset each session)
+project-root/
+│
+├── .claude/
+│   ├── commands/                  ← project slash commands (5 governance commands)
+│   └── settings.local.json
+│
+├── .github/
+│   └── workflows/                 ← CI/CD pipelines (create if using GitHub Actions)
+│
+├── frontend/                      ← all UI code
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/              ← API clients
+│   │   ├── lib/                   ← shared utils, constants (lib lives INSIDE src/, not at root)
+│   │   └── types/
+│   └── package.json
+│
+├── backend/                       ← all server code (use "backend/", not "lib/" or "server/")
+│   ├── src/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── middleware/
+│   │   ├── workers/
+│   │   └── lib/                   ← shared backend utils (inside src/, not at root)
+│   └── package.json
+│
+├── data/                          ← all data layer
+│   ├── migrations/                ← numbered SQL/schema changes (001-, 002-, ...)
+│   ├── seeds/                     ← initial and test data
+│   └── schemas/                   ← type definitions, JSON schemas
+│
 ├── docs/
-│   ├── get-up-to-speed.md             ← Full agent onboarding (on-demand, not startup)
-│   ├── DEVELOPMENT_MANDATES.md        ← Coding standards
-│   ├── PRD_TEMPLATE.md                ← Feature planning template
-│   ├── TEST_PLAN_TEMPLATE.md          ← Required before any code
+│   ├── get-up-to-speed.md         ← agent onboarding (governance — on-demand, not startup)
+│   ├── DEVELOPMENT_MANDATES.md    ← extended coding standards with examples
+│   ├── system/                    ← project planning and architecture docs
+│   │   ├── prd/                   ← PRD per feature (required before any feature work)
+│   │   ├── test-plans/            ← test plan per task (required before any code)
+│   │   └── decisions/             ← ADRs: why we chose X over Y (001-why-redis.md)
+│   ├── ux/                        ← UI/UX specs, wireframes, user flows, component specs
+│   ├── api/                       ← API reference: endpoints, request/response shapes, auth
 │   └── archive/
-│       ├── sessions/                  ← Archived SESSION.md files (never auto-read)
-│       └── status/                    ← Archived status/complete docs
-├── scratchpad/                        ← Working files for in-progress tasks
-└── .claude/
-    └── commands/
-        ├── get-up-to-speed.md         ← /get-up-to-speed (reads STATUS + CHECKPOINT, registers cron)
-        ├── auto-persist.md            ← /auto-persist (13-min worker, bounded writes)
-        ├── update-knowledge.md        ← /update-knowledge (manual, end-of-session)
-        ├── start-task.md              ← /start-task (test plan gate + CHECKPOINT init)
-        └── complete-task.md           ← /complete-task (test verification gate)
+│       ├── sessions/              ← archived SESSION.md files (never auto-read)
+│       └── status/                ← archived status/complete docs
+│
+├── scripts/                       ← dev utility scripts
+│   ├── setup.sh                   ← one-command local dev setup
+│   ├── migrate.sh                 ← run all pending migrations
+│   └── reset-dev.sh               ← nuke and rebuild local dev state
+│
+├── tests/                         ← all tests (or co-locate inside frontend/ and backend/)
+│   ├── unit/                      ← pure function tests, no I/O
+│   ├── integration/               ← tests that hit real DB, real Redis, real APIs
+│   ├── e2e/                       ← browser/full-stack end-to-end tests (Playwright)
+│   └── fixtures/                  ← real test data (NOT mocks — real domains, real payloads)
+│
+├── scratchpad/                    ← agent working files (in .gitignore)
+│
+├── .env.example                   ← every required env var documented, no values
+├── .gitignore                     ← .env, scratchpad/, node_modules/, dist/, .DS_Store
+├── docker-compose.yml             ← local services (Redis, Postgres, etc.) if applicable
+├── README.md                      ← human-facing project overview
+├── CLAUDE.md                      ← agent constitution (governance)
+├── STATUS.md                      ← 30-line snapshot (governance — overwritten, never appended)
+├── CHECKPOINT.md                  ← active task state (governance — overwritten per step)
+└── SESSION.md                     ← current session log (governance — archived + reset per session)
 ```
+
+### Directory Naming Decisions (canonical)
+- **`backend/`** not `lib/`, `server/`, or `api/` — most readable for full server code
+- **`lib/`** lives INSIDE `frontend/src/` or `backend/src/` for shared utils — never at project root
+- **`api/`** only if the project uses serverless/edge functions without a full server
+- **`skills/`** does NOT exist at project root — project automation → `.claude/commands/`, reusable skills → `~/.claude/skills/`
+- **`docs/system/decisions/`** — Architecture Decision Records. Every non-obvious technical choice gets a numbered ADR. Prevents agents from re-litigating settled decisions.
 
 ---
 
@@ -443,11 +497,196 @@ exit 0
 
 ---
 
-## Step 14: Create Directory Structure
+## Step 14: Create Full Directory Structure and Root Files
 
+### Create all directories
 ```bash
-mkdir -p docs/prd docs/test-plans docs/archive/sessions docs/archive/status scratchpad
-touch scratchpad/.gitkeep docs/.commit-log docs/.knowledge-updated
+mkdir -p .claude/commands
+mkdir -p .github/workflows
+mkdir -p frontend/src/{components,pages,services,lib,types}
+mkdir -p backend/src/{routes,services,middleware,workers,lib}
+mkdir -p data/{migrations,seeds,schemas}
+mkdir -p docs/{system/{prd,test-plans,decisions},ux,api,archive/{sessions,status}}
+mkdir -p tests/{unit,integration,e2e,fixtures}
+mkdir -p scripts
+mkdir -p scratchpad
+```
+
+### Create `.gitignore`
+```
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Agent working files (ephemeral, not for version control)
+scratchpad/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Cache
+.cache/
+.turbo/
+dump.rdb
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Test coverage
+coverage/
+.nyc_output/
+```
+
+### Create `.env.example`
+```bash
+# ============================================================
+# [PROJECT_NAME] — Environment Variables Template
+# Copy to .env and fill in values. NEVER commit .env.
+# ============================================================
+
+# Server
+PORT=3001
+NODE_ENV=development
+
+# Database
+SUPABASE_URL=https://[project-id].supabase.co
+SUPABASE_KEY=
+DATABASE_URL=postgresql://...
+
+# Cache
+REDIS_URL=redis://localhost:6379
+
+# External APIs (add as needed)
+# SIMILARWEB_API_KEY=
+# BUILTWITH_API_KEY=
+# APIFY_API_KEY=
+# ANTHROPIC_API_KEY=
+# OPENAI_API_KEY=
+```
+
+### Create `scripts/setup.sh`
+```bash
+#!/bin/bash
+# One-command local dev environment setup
+echo "Setting up [PROJECT_NAME] dev environment..."
+
+# Check prerequisites
+command -v node >/dev/null 2>&1 || { echo "Node.js required"; exit 1; }
+command -v redis-cli >/dev/null 2>&1 || echo "WARNING: Redis not found — run: brew install redis"
+
+# Install dependencies
+[ -d frontend ] && (cd frontend && npm install)
+[ -d backend ] && (cd backend && npm install)
+
+# Copy env template if .env doesn't exist
+[ ! -f backend/.env ] && [ -f .env.example ] && cp .env.example backend/.env && echo "Created backend/.env — add your API keys"
+
+echo "Setup complete. Next:"
+echo "  1. Add API keys to backend/.env"
+echo "  2. redis-server"
+echo "  3. cd backend && npm run dev"
+```
+Run: `chmod +x scripts/setup.sh`
+
+### Create `docs/system/decisions/000-template.md`
+```markdown
+# ADR-000: [Decision Title]
+
+**Date**: [date]
+**Status**: Accepted | Superseded by ADR-XXX
+
+## Context
+[What situation forced this decision?]
+
+## Decision
+[What we chose to do]
+
+## Alternatives Considered
+- [Option A] — rejected because [reason]
+- [Option B] — rejected because [reason]
+
+## Consequences
+- [What becomes easier]
+- [What becomes harder]
+- [What we accept as a trade-off]
+```
+
+### Create `docs/ux/README.md`
+```markdown
+# UX Documentation
+
+All UI/UX specifications, wireframes, user flows, and component specs.
+
+## Contents
+- `user-flows/` — step-by-step user journeys
+- `component-specs/` — behavior specs for complex components
+- `wireframes/` — links to Figma or embedded images
+- `design-decisions/` — why the UI works the way it does
+
+## For Agents
+Read the relevant spec in this directory before building any UI component.
+The spec defines the intended experience — code to match it, not to invent it.
+```
+
+### Create `docs/api/README.md`
+```markdown
+# API Documentation
+
+Endpoint specifications, request/response shapes, auth requirements.
+
+## Format per endpoint
+**`METHOD /path`**
+- Auth: [required/none]
+- Request: [body/params shape]
+- Response: [shape + status codes]
+- Notes: [rate limits, caching, side effects]
+
+## For Agents
+Check here before calling any endpoint from the frontend.
+Check here before changing any endpoint in the backend — downstream consumers may break.
+```
+
+### Create `tests/fixtures/README.md`
+```markdown
+# Test Fixtures
+
+Real data for use in tests. No mocks. No generated data.
+
+## Contents
+- Real domain names to test with (e.g. costco.com, nike.com)
+- Real API response samples (captured from actual calls)
+- Real database seed states
+
+## Rules
+- Never use faker/mock libraries — use real values
+- If you add a fixture, document where it came from
+- Fixtures are for reproducibility, not convenience
+```
+
+### Touch placeholder files
+```bash
+touch docs/.commit-log docs/.knowledge-updated
+touch scratchpad/.gitkeep
+touch tests/unit/.gitkeep tests/integration/.gitkeep tests/e2e/.gitkeep
 ```
 
 ---
