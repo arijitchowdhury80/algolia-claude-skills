@@ -1,6 +1,6 @@
 #!/bin/bash
-# Algolia Claude Code Skills — Unified Installer v2.7
-# Installs 15 Algolia skills (13 brand + 1 search audit + 1 factcheck) to ~/.claude/skills/
+# Algolia Claude Code Skills — Unified Installer v2.8
+# Installs 16 skills (13 brand + 1 search audit + 1 factcheck + 1 project-governance) to ~/.claude/skills/
 
 set -e
 
@@ -10,7 +10,7 @@ SOURCE_DIR="$SCRIPT_DIR/skills"
 
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
-echo "║   Algolia Skills for Claude Code — Install v2.7  ║"
+echo "║   Algolia Skills for Claude Code — Install v2.8  ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 
@@ -37,7 +37,7 @@ AUDIT_COUNT=0
 FACTCHECK_COUNT=0
 REF_COUNT=0
 
-for skill_dir in "$SOURCE_DIR"/algolia-*; do
+for skill_dir in "$SOURCE_DIR"/algolia-* "$SOURCE_DIR"/project-governance; do
   if [ -d "$skill_dir" ]; then
     skill_name=$(basename "$skill_dir")
     echo "  -> $skill_name"
@@ -133,6 +133,14 @@ if [ -f "$SCRIPT_DIR/CLAUDE-template.md" ]; then
   fi
 fi
 
-echo "Open any project in Claude Code and type /algolia- to see all commands."
+echo "Project Governance Skill:"
+echo "  /project-governance    — Bootstrap complete governance for any project"
+echo "    Creates: STATUS.md, CHECKPOINT.md, SESSION.md, CLAUDE.md, get-up-to-speed.md,"
+echo "             5 project commands, git hook, PRD + test plan templates."
+echo "    Run once per project. Then: /get-up-to-speed at every session start."
+echo ""
+echo "────────────────────────────────────────────────────"
+echo ""
+echo "Open any project in Claude Code and type / to see all commands."
 echo ""
 echo "Done!"
